@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tavla Analiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ── Temel ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #080b10;
+  --panel:     #0d1117;
+  --surface:   #111825;
+  --surface2:  #1a2235;
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(255,255,255,0.12);
+  --amber:     #f59e0b;
+  --amber-dim: rgba(245,158,11,0.12);
+  --amber-bd:  rgba(245,158,11,0.3);
+  --green:     #22c55e;
+  --green-dim: rgba(34,197,94,0.1);
+  --red:       #ef4444;
+  --red-dim:   rgba(239,68,68,0.1);
+  --blue:      #60a5fa;
+  --text:      #e2e8f0;
+  --muted:     #4b5c6b;
+  --muted2:    #64748b;
+
+  --white-checker: #e2e8f0;
+  --red-checker:   #dc2626;
+
+  --font-mono: 'Space Mono', monospace;
+  --font-ui:   'Syne', sans-serif;
+}
+
+html, body { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--amber);
+}
+
+.header-title {
+  font-size: 13px;
+  color: var(--muted2);
+  font-family: var(--font-mono);
+  flex: 1;
+}
+
+.header-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: var(--amber-dim);
+  border: 1px solid var(--amber-bd);
+  color: var(--amber);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── Ana layout: üst + alt ──────────────────────────────────────────────────── */
+.layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Üst bant: PR kartları + özet ─────────────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  height: 110px;
+}
+
+.pr-card {
+  background: var(--panel);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 220px;
+  position: relative;
+  overflow: hidden;
+}
+
+.pr-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+
+.pr-card.white::before { background: var(--white-checker); }
+.pr-card.red::before   { background: var(--red-checker); }
+
+.pr-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.pr-card.white .pr-avatar { background: rgba(226,232,240,0.1); border: 1px solid rgba(226,232,240,0.2); }
+.pr-card.red   .pr-avatar { background: rgba(220,38,38,0.12);  border: 1px solid rgba(220,38,38,0.25); }
+
+.pr-info { flex: 1; min-width: 0; }
+
+.pr-name {
+  font-size: 12px;
+  color: var(--muted2);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pr-score-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pr-score {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pr-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.pr-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  align-items: flex-end;
+}
+
+.pr-stat-row { display: flex; gap: 6px; align-items: center; }
+.pr-stat-val { color: var(--text); font-weight: 700; }
+
+/* Orta: oyun bilgisi ─────────────────────────────────────────────────────── */
+.game-info-card {
+  background: var(--panel);
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.game-winner {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  display: flex;
+  gap: 16px;
+}
+
+.game-meta span { display: flex; align-items: center; gap: 4px; }
+
+/* gnubg panel ──────────────────────────────────────────────────────────────── */
+.gnubg-panel {
+  background: var(--panel);
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.gnubg-status-row {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+}
+
+.gnubg-btn {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--amber-bd);
+  background: var(--amber-dim);
+  color: var(--amber);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.gnubg-btn:hover:not(:disabled) { background: rgba(245,158,11,0.2); }
+.gnubg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Alt bölüm: sol liste + sağ board ───────────────────────────────────────── */
+.main-split {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* Sol: hamle listesi ─────────────────────────────────────────────────────── */
+.moves-panel {
+  width: 340px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.moves-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.moves-header-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+.filter-pills {
+  display: flex;
+  gap: 4px;
+}
+
+.fpill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted2);
+  cursor: pointer;
+  transition: all 0.12s;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fpill:hover { border-color: var(--amber-bd); color: var(--amber); }
+.fpill.active { background: var(--amber-dim); border-color: var(--amber-bd); color: var(--amber); }
+.fpill.fp-bad.active    { background: var(--red-dim); border-color: rgba(239,68,68,0.4); color: var(--red); }
+.fpill.fp-good.active   { background: var(--green-dim); border-color: rgba(34,197,94,0.4); color: var(--green); }
+
+.moves-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.moves-list::-webkit-scrollbar { width: 4px; }
+.moves-list::-webkit-scrollbar-track { background: transparent; }
+.moves-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Hamle kartı ─────────────────────────────────────────────────────────────── */
+.move-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.12s;
+  margin-bottom: 2px;
+  position: relative;
+}
+
+.move-card:hover { background: var(--surface); border-color: var(--border2); }
+
+.move-card.selected {
+  background: var(--surface2);
+  border-color: var(--amber-bd);
+}
+
+.move-card.blunder  { border-left: 2px solid var(--red); }
+.move-card.mistake  { border-left: 2px solid #f59e0b; }
+.move-card.optimal  { border-left: 2px solid var(--green); }
+.move-card.no-data  { border-left: 2px solid var(--muted); opacity: 0.55; }
+
+.move-num {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  min-width: 22px;
+}
+
+.move-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.move-body { flex: 1; min-width: 0; }
+
+.move-player {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-bottom: 1px;
+}
+
+.move-dice {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+  margin-right: 6px;
+}
+
+.move-str {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.move-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.move-loss {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.move-quality {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Sağ: board + detay ────────────────────────────────────────────────────────── */
+.board-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Board wrapper ─────────────────────────────────────────────────────────────── */
+.board-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.board-container {
+  position: relative;
+}
+
+canvas#analyze-board {
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(245,158,11,0.15);
+}
+
+/* Hamle detay paneli (board altı) ──────────────────────────────────────────── */
+.detail-panel {
+  height: 160px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.detail-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.detail-move-info {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.detail-turn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail-actual-move {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.detail-eq {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.detail-candidates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.candidate.best { border-color: rgba(34,197,94,0.4); background: var(--green-dim); }
+.candidate.actual-match { border-color: var(--amber-bd); }
+
+.cand-rank { color: var(--muted); font-size: 9px; min-width: 14px; }
+.cand-move { color: var(--text); }
+.cand-eq   { color: var(--muted2); font-size: 10px; }
+.cand-diff { color: var(--red); font-size: 10px; }
+
+/* Yükleme / boş durumu ─────────────────────────────────────────────────────── */
+#empty-screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg);
+  gap: 12px;
+  z-index: 100;
+}
+
+.empty-icon { font-size: 48px; }
+.empty-title { font-size: 18px; font-weight: 700; }
+.empty-sub { font-size: 13px; color: var(--muted2); font-family: var(--font-mono); }
+
+/* Dot loader ────────────────────────────────────────────────────────────────── */
+.dot-loader { display: flex; gap: 4px; }
+.dot-loader span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--amber);
+  animation: dl 1s infinite;
+}
+.dot-loader span:nth-child(2) { animation-delay: .15s; }
+.dot-loader span:nth-child(3) { animation-delay: .3s; }
+@keyframes dl { 0%,80%,100%{opacity:.2;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
+
+/* Scrollbar ─────────────────────────────────────────────────────────────────── */
+</style>
+</head>
+<body>
+
+<!-- Boş durum -->
+<div id="empty-screen" style="display:none">
+  <div class="empty-icon">🎲</div>
+  <div class="empty-title">Analiz verisi yok</div>
+  <div class="empty-sub">Oyunu bitirdikten sonra "Analizi Gör" butonuna basın</div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="logo">♟ TAVLA</div>
+  <div class="header-title" id="header-title">— analiz yükleniyor —</div>
+  <div class="header-badge">ANALİZ</div>
+</header>
+
+<!-- Ana layout -->
+<div class="layout">
+
+  <!-- Üst bant: PR + oyun bilgisi + gnubg -->
+  <div class="top-bar">
+
+    <!-- Beyaz PR -->
+    <div class="pr-card white" id="pr-white">
+      <div class="pr-avatar">⬜</div>
+      <div class="pr-info">
+        <div class="pr-name" id="pr-white-name">Beyaz</div>
+        <div class="pr-score-row">
+          <div class="pr-score" id="pr-white-score" style="color:var(--muted2)">—</div>
+          <div class="pr-label" id="pr-white-label" style="color:var(--muted2);background:var(--surface)">PR</div>
+        </div>
+      </div>
+      <div class="pr-stats" id="pr-white-stats">
+        <div class="pr-stat-row"><span>optimal</span><span class="pr-stat-val" id="pw-opt">—</span></div>
+        <div class="pr-stat-row"><span>hata</span><span class="pr-stat-val" id="pw-err">—</span></div>
+        <div class="pr-stat-row"><span>büyük</span><span class="pr-stat-val" id="pw-blunder">—</span></div>
+      </div>
+    </div>
+
+    <!-- Kırmızı PR -->
+    <div class="pr-card red" id="pr-red">
+      <div class="pr-avatar">🔴</div>
+      <div class="pr-info">
+        <div class="pr-name" id="pr-red-name">Kırmızı</div>
+        <div class="pr-score-row">
+          <div class="pr-score" id="pr-red-score" style="color:var(--muted2)">—</div>
+          <div class="pr-label" id="pr-red-label" style="color:var(--muted2);background:var(--surface)">PR</div>
+        </div>
+      </div>
+      <div class="pr-stats" id="pr-red-stats">
+        <div class="pr-stat-row"><span>optimal</span><span class="pr-stat-val" id="pr-opt">—</span></div>
+        <div class="pr-stat-row"><span>hata</span><span class="pr-stat-val" id="pr-err">—</span></div>
+        <div class="pr-stat-row"><span>büyük</span><span class="pr-stat-val" id="pr-blunder">—</span></div>
+      </div>
+    </div>
+
+    <!-- Oyun özeti -->
+    <div class="game-info-card">
+      <div class="game-winner" id="game-winner">—</div>
+      <div class="game-meta">
+        <span>🎲 <b id="meta-turns">—</b> tur</span>
+        <span>💥 <b id="meta-hits">—</b> vuruş</span>
+        <span>🎯 <b id="meta-double">—</b> çift zar</span>
+        <span>🏁 <b id="meta-bearoff">—</b> toplama</span>
+      </div>
+    </div>
+
+    <!-- GNU Backgammon -->
+    <div class="gnubg-panel">
+      <div class="gnubg-status-row" id="gnubg-status">⏳ kontrol ediliyor...</div>
+      <button class="gnubg-btn" id="gnubg-btn" disabled>🧠 Analiz Et</button>
+      <div id="gnubg-progress" style="display:none;font-family:var(--font-mono);font-size:10px;color:var(--muted2)"></div>
+    </div>
+
+  </div><!-- /top-bar -->
+
+  <!-- Alt split -->
+  <div class="main-split">
+
+    <!-- Sol: hamle listesi -->
+    <div class="moves-panel">
+      <div class="moves-header">
+        <span class="moves-header-title">Tur Geçmişi</span>
+        <div class="filter-pills">
+          <button class="fpill active" id="fp-all"     onclick="setFilter('all')">Tümü</button>
+          <button class="fpill"        id="fp-white"   onclick="setFilter('white')">⬜</button>
+          <button class="fpill"        id="fp-red"     onclick="setFilter('red')" style="color:#dc2626">🔴</button>
+          <button class="fpill fp-bad" id="fp-blunder" onclick="setFilter('blunder')">Hata</button>
+          <button class="fpill fp-good" id="fp-opt"   onclick="setFilter('optimal')">Opt</button>
+        </div>
+      </div>
+      <div class="moves-list" id="moves-list">
+        <div style="padding:24px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--muted)">
+          Yükleniyor...
+        </div>
+      </div>
+    </div>
+
+    <!-- Sağ: board + detay -->
+    <div class="board-panel">
+      <div class="board-wrapper">
+        <div class="board-container">
+          <canvas id="analyze-board"></canvas>
+        </div>
+      </div>
+
+      <!-- Alt detay şeridi -->
+      <div class="detail-panel" id="detail-panel">
+        <div class="detail-empty" id="detail-empty">
+          ← Bir tur seçin
+        </div>
+        <div class="detail-move-info" id="detail-info" style="display:none">
+          <div class="detail-header">
+            <span class="detail-turn" id="det-turn"></span>
+            <span class="detail-actual-move" id="det-move"></span>
+            <span class="detail-eq" id="det-eq"></span>
+          </div>
+          <div class="detail-candidates" id="det-candidates"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-split -->
+</div><!-- /layout -->
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+// ── Canvas sabitleri ──────────────────────────────────────────────────────────
+const BW = 900, BH = 560;
+const PW = 58, BAR = 46, ML = 10, CHECKER_R = 19;
+const canvas = document.getElementById('analyze-board');
+const ctx    = canvas.getContext('2d');
+canvas.width  = BW;
+canvas.height = BH;
+
+// ── Veri ─────────────────────────────────────────────────────────────────────
+const raw = localStorage.getItem('tavla_analysis');
+if (!raw) {
+  document.getElementById('empty-screen').style.display = 'flex';
+  return;
+}
+
+const data       = JSON.parse(raw);
+const { history, players, result, myColor } = data;
+const wName      = players?.white || 'Beyaz';
+const bName      = players?.black || 'Kırmızı';
+
+let gnubgResults = null;
+let activeFilter = 'all';
+let selectedIdx  = null;
+
+// ── Header ───────────────────────────────────────────────────────────────────
+document.getElementById('header-title').textContent =
+  `${wName}  vs  ${bName}  ·  ${history.length} tur`;
+
+document.getElementById('pr-white-name').textContent = wName.toUpperCase();
+document.getElementById('pr-red-name').textContent   = bName.toUpperCase();
+
+// Oyun meta
+const stats = computeStats(history);
+const winnerName = result.winner === 'white' ? wName : bName;
+const winTypeMap = { normal: 'Normal', gammon: '🎯 Gammon', backgammon: '🏅 Backgammon' };
+document.getElementById('game-winner').innerHTML =
+  `${result.winner === myColor ? '🏆' : '😔'} <b>${winnerName}</b>&nbsp;kazandı&nbsp;·&nbsp;${winTypeMap[result.winType]||''}&nbsp;+${result.points}p`;
+document.getElementById('meta-turns').textContent   = history.length;
+document.getElementById('meta-hits').textContent    = stats.hits;
+document.getElementById('meta-double').textContent  = stats.doubleTurns;
+document.getElementById('meta-bearoff').textContent = stats.bearOffTurns;
+
+// ── İlk board ────────────────────────────────────────────────────────────────
+// Oyunun başlangıç tahtasını çiz (ilk turun boardBefore)
+const firstBoard = history[0]?.boardBefore;
+if (firstBoard) drawBoard(firstBoard);
+else drawEmptyBoard();
+
+// ── Hamle listesini render et ─────────────────────────────────────────────────
+renderMoveList();
+
+// ── gnubg durumu ─────────────────────────────────────────────────────────────
+checkGnubgStatus();
+document.getElementById('gnubg-btn').addEventListener('click', startAnalysis);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BOARD ÇİZİM
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function getPointCenter(pt) {
+  const barX = ML + 6 * PW;
+  let x, isBottom;
+  if (pt >= 1 && pt <= 6) {
+    x = barX + BAR + (6 - pt) * PW + PW / 2; isBottom = true;
+  } else if (pt >= 7 && pt <= 12) {
+    x = ML + (12 - pt) * PW + PW / 2; isBottom = true;
+  } else if (pt >= 13 && pt <= 18) {
+    x = ML + (pt - 13) * PW + PW / 2; isBottom = false;
+  } else {
+    x = barX + BAR + (pt - 19) * PW + PW / 2; isBottom = false;
+  }
+  return { x, isBottom };
+}
+
+function drawBoard(gs, highlightMoves) {
+  const board   = gs.board   || gs;
+  const bar     = gs.bar     || { white: 0, black: 0 };
+  const barX    = ML + 6 * PW;
+
+  ctx.clearRect(0, 0, BW, BH);
+
+  // Zemin
+  ctx.fillStyle = '#1a0e05';
+  ctx.fillRect(0, 0, BW, BH);
+
+  // Noktalar
+  for (let i = 1; i <= 24; i++) {
+    const { x, isBottom } = getPointCenter(i);
+    const y    = isBottom ? BH : 0;
+    const tipY = isBottom ? BH - 220 : 220;
+    const grad = ctx.createLinearGradient(0, y, 0, tipY);
+    if (i % 2 === 0) {
+      grad.addColorStop(0, '#7c3aed'); grad.addColorStop(1, '#4c1d95');
+    } else {
+      grad.addColorStop(0, '#0f766e'); grad.addColorStop(1, '#064e49');
+    }
+    ctx.beginPath();
+    ctx.moveTo(x - PW/2, y);
+    ctx.lineTo(x + PW/2, y);
+    ctx.lineTo(x, tipY);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Numara
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = 'bold 9px Space Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = isBottom ? 'bottom' : 'top';
+    ctx.fillText(i, x, isBottom ? BH - 3 : 3);
+  }
+
+  // Bar
+  ctx.fillStyle = '#0a0c10';
+  ctx.fillRect(barX, 0, BAR, BH);
+  ctx.strokeStyle = 'rgba(245,158,11,0.2)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(barX, 0, BAR, BH);
+  // Orta çizgi
+  ctx.beginPath(); ctx.moveTo(barX, BH/2); ctx.lineTo(barX+BAR, BH/2); ctx.stroke();
+
+  // Hamle vurgulama
+  if (highlightMoves) {
+    for (const m of highlightMoves) {
+      if (typeof m.to === 'number') {
+        const { x, isBottom } = getPointCenter(m.to);
+        ctx.beginPath();
+        ctx.arc(x, isBottom ? BH - CHECKER_R - 4 : CHECKER_R + 4, CHECKER_R + 6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(245,158,11,0.15)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Pullar (1-24)
+  for (let i = 1; i <= 24; i++) {
+    const val = board[i];
+    if (!val) continue;
+    const color = val > 0 ? 'white' : 'black';
+    const count = Math.abs(val);
+    const { x, isBottom } = getPointCenter(i);
+    for (let j = 0; j < Math.min(count, 5); j++) {
+      const baseY = isBottom ? BH - 1 : 1;
+      const cy = baseY + (isBottom ? -1 : 1) * (CHECKER_R * 2 * j + CHECKER_R);
+      drawChecker(x, cy, color, j === 4 && count > 5 ? count.toString() : null);
+    }
+  }
+
+  // Bar pulları
+  const cx = barX + BAR / 2;
+  for (let j = 0; j < (bar.black || 0); j++) drawChecker(cx, 40 + j * (CHECKER_R*2+3), 'black', null);
+  for (let j = 0; j < (bar.white || 0); j++) drawChecker(cx, BH - 40 - j * (CHECKER_R*2+3), 'white', null);
+
+  // Çerçeve
+  ctx.strokeStyle = 'rgba(245,158,11,0.12)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0, 0, BW, BH);
+}
+
+function drawEmptyBoard() {
+  const INIT = [0,-2,0,0,0,0,5,0,3,0,0,0,-5,5,0,0,0,-3,0,-5,0,0,0,0,2,0];
+  drawBoard({ board: INIT, bar: {white:0,black:0} });
+}
+
+function drawChecker(cx, cy, color, label) {
+  const r = CHECKER_R;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur  = 8;
+  ctx.shadowOffsetY = 2;
+
+  const g = ctx.createRadialGradient(cx - r*.3, cy - r*.3, r*.1, cx, cy, r);
+  if (color === 'white') {
+    g.addColorStop(0, '#ffffff'); g.addColorStop(.6, '#e2e8f0'); g.addColorStop(1, '#94a3b8');
+  } else {
+    g.addColorStop(0, '#ff6b6b'); g.addColorStop(.6, '#dc2626'); g.addColorStop(1, '#7f1d1d');
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.fillStyle = g; ctx.fill();
+
+  ctx.strokeStyle = color === 'white' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Parlaklık
+  const shine = ctx.createRadialGradient(cx-r*.3, cy-r*.35, 0, cx-r*.3, cy-r*.35, r*.5);
+  shine.addColorStop(0, 'rgba(255,255,255,0.45)'); shine.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fillStyle = shine; ctx.fill();
+
+  if (label) {
+    ctx.fillStyle = color === 'white' ? '#1e293b' : '#fff';
+    ctx.font = `bold ${r*.8}px Space Mono, monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 0; ctx.fillText(label, cx, cy);
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HAMle LİSTESİ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function renderMoveList() {
+  const list = document.getElementById('moves-list');
+  list.innerHTML = '';
+
+  const filtered = history.map((t, i) => ({ t, i })).filter(({ t }) => {
+    if (activeFilter === 'white')   return t.color === 'white';
+    if (activeFilter === 'red')     return t.color === 'black';
+    if (activeFilter === 'blunder') {
+      const r = gnubgResults?.[gnubgResults.findIndex
+        ? gnubgResults.findIndex((_, ri) => history.indexOf(t) === ri) : -1];
+      return (r?.equityLoss || 0) > 0.05;
+    }
+    if (activeFilter === 'optimal') {
+      const r = gnubgResults?.[history.indexOf(t)];
+      return r?.isOptimal;
+    }
+    return true;
+  });
+
+  filtered.forEach(({ t, i }) => {
+    const gr      = gnubgResults?.[i];
+    const loss    = gr?.equityLoss ?? null;
+    const isOpt   = gr?.isOptimal ?? false;
+    const hasData = gr && !gr.skipped && !gr.error;
+
+    let qualCls = 'no-data';
+    let lossColor = 'var(--muted)';
+    let qualLabel = '—';
+
+    if (hasData) {
+      if (isOpt)        { qualCls='optimal'; lossColor='var(--green)';  qualLabel='OPTİMAL'; }
+      else if(loss>0.1) { qualCls='blunder'; lossColor='var(--red)';    qualLabel='BÜYÜK HATA'; }
+      else if(loss>0.05){ qualCls='mistake'; lossColor='var(--amber)';  qualLabel='HATA'; }
+      else              { qualCls='optimal'; lossColor='var(--green)';  qualLabel='İYİ'; }
+    }
+
+    const isWhite  = t.color === 'white';
+    const dotColor = isWhite ? '#e2e8f0' : '#dc2626';
+    const diceStr  = Array.isArray(t.dice)
+      ? (t.dice.length===4 ? `${t.dice[0]}${t.dice[0]}` : `${t.dice[0]}${t.dice[1]}`)
+      : '??';
+    const moveStr  = t.moves?.map(m => fmtMove(m, t.color)).join(' ') || 'pas';
+
+    const card = document.createElement('div');
+    card.className = `move-card ${qualCls}${selectedIdx===i?' selected':''}`;
+    card.dataset.idx = i;
+    card.innerHTML = `
+      <span class="move-num">#${i+1}</span>
+      <span class="move-dot" style="background:${dotColor}"></span>
+      <div class="move-body">
+        <div class="move-player">${isWhite ? wName : bName}</div>
+        <div><span class="move-dice">[${diceStr}]</span><span class="move-str">${moveStr}</span></div>
+      </div>
+      <div class="move-right">
+        ${loss!==null ? `<span class="move-loss" style="color:${lossColor}">${loss>0?'−'+loss.toFixed(3):'0.000'}</span>` : ''}
+        <span class="move-quality" style="color:${lossColor}">${qualLabel}</span>
+      </div>`;
+
+    card.addEventListener('click', () => selectTurn(i));
+    list.appendChild(card);
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--muted)">Bu filtrede tur yok</div>`;
+  }
+}
+
+function selectTurn(idx) {
+  selectedIdx = idx;
+  const t  = history[idx];
+  const gr = gnubgResults?.[idx];
+
+  // Board güncelle - boardAfter göster (hamle oynandıktan sonraki durum)
+  const boardState = t.boardAfter || t.boardBefore;
+  if (boardState) {
+    drawBoard(boardState, t.moves?.filter(m => typeof m.to === 'number'));
+  }
+
+  // Detay paneli
+  document.getElementById('detail-empty').style.display = 'none';
+  const info = document.getElementById('detail-info');
+  info.style.display = 'flex';
+
+  const isWhite = t.color === 'white';
+  const diceStr = Array.isArray(t.dice)
+    ? (t.dice.length===4 ? `[${t.dice[0]},${t.dice[0]}]×4` : `[${t.dice.join(',')}]`)
+    : '?';
+  const moveStr = t.moves?.map(m => fmtMove(m, t.color)).join(' ') || 'pas';
+
+  document.getElementById('det-turn').textContent =
+    `TUR #${idx+1}  ·  ${isWhite ? wName : bName}  ·  ${diceStr}`;
+  document.getElementById('det-move').textContent = moveStr;
+
+  const eqEl = document.getElementById('det-eq');
+  if (gr && !gr.skipped) {
+    const loss = gr.equityLoss;
+    if (gr.isOptimal) {
+      eqEl.textContent = '✓ OPTİMAL';
+      eqEl.style.cssText = 'background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,0.3)';
+    } else if (loss !== null) {
+      eqEl.textContent = `−${loss.toFixed(3)} equity`;
+      eqEl.style.cssText = `background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,0.3)`;
+    } else {
+      eqEl.textContent = ''; eqEl.style.cssText = '';
+    }
+  } else {
+    eqEl.textContent = ''; eqEl.style.cssText = '';
+  }
+
+  // Aday hamleler
+  const cands = document.getElementById('det-candidates');
+  cands.innerHTML = '';
+  if (gr?.topMoves?.length) {
+    const actualKey = (t.moves||[]).map(m=>`${m.from}-${m.to}`).join(' ');
+    gr.topMoves.slice(0,5).forEach((m, mi) => {
+      const isFirst = mi === 0;
+      const isActual = gr.isOptimal && mi === 0;
+      const diff = isFirst ? '' : `<span class="cand-diff">−${(gr.topMoves[0].equity - m.equity).toFixed(3)}</span>`;
+      const div = document.createElement('div');
+      div.className = `candidate${isFirst?' best':''}${isActual?' actual-match':''}`;
+      div.innerHTML = `<span class="cand-rank">${m.rank}.</span><span class="cand-move">${m.moveStr}</span><span class="cand-eq">${m.equity.toFixed(3)}</span>${diff}`;
+      cands.appendChild(div);
+    });
+  } else if (gr) {
+    cands.innerHTML = `<span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">gnubg analizi yok</span>`;
+  } else {
+    cands.innerHTML = `<span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">Analiz için 🧠 butona basın</span>`;
+  }
+
+  // Seçili kartı vurgula
+  document.querySelectorAll('.move-card').forEach(c => {
+    c.classList.toggle('selected', +c.dataset.idx === idx);
+  });
+
+  // Listeye kaydır
+  const card = document.querySelector(`.move-card[data-idx="${idx}"]`);
+  if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PR HESAPLAMA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function calcPR(arr) {
+  if (!arr.length) return null;
+  const moves = arr.reduce((s, r) => s + (r.dice?.length === 4 ? 4 : 2), 0);
+  return moves ? +(arr.reduce((s, r) => s + (r.equityLoss||0), 0) / moves * 500).toFixed(1) : null;
+}
+
+function prColor(v) {
+  return v < 3 ? '#22c55e' : v < 6 ? '#84cc16' : v < 10 ? '#f59e0b' : '#ef4444';
+}
+
+function prLabel(v) {
+  return v < 3 ? 'UZMAN' : v < 6 ? 'İYİ' : v < 10 ? 'ORTA' : 'ZAYIF';
+}
+
+function updatePRCards(results) {
+  const analyzed = results.filter(r => !r.skipped && !r.error);
+  const wA = analyzed.filter(r => r.color === 'white');
+  const bA = analyzed.filter(r => r.color === 'black');
+
+  [[wA, 'white', 'pw'], [bA, 'black', 'pr']].forEach(([arr, color, prefix]) => {
+    const prVal = calcPR(arr);
+    const sfx   = color === 'white' ? 'white' : 'red';
+    const scoreEl = document.getElementById(`pr-${sfx}-score`);
+    const labelEl = document.getElementById(`pr-${sfx}-label`);
+
+    if (prVal !== null) {
+      const col = prColor(+prVal);
+      const lbl = prLabel(+prVal);
+      scoreEl.textContent = prVal;
+      scoreEl.style.color = col;
+      labelEl.textContent = lbl;
+      labelEl.style.color = col;
+      labelEl.style.background = col + '22';
+    }
+
+    document.getElementById(`${prefix}-opt`).textContent =
+      `${arr.filter(r=>r.isOptimal).length}/${arr.length}`;
+    document.getElementById(`${prefix}-err`).textContent =
+      arr.filter(r=>(r.equityLoss||0)>0.05&&(r.equityLoss||0)<=0.1).length;
+    document.getElementById(`${prefix}-blunder`).textContent =
+      arr.filter(r=>(r.equityLoss||0)>0.1).length;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GNU BACKGAMMON ANALİZİ
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function checkGnubgStatus() {
+  const statusEl = document.getElementById('gnubg-status');
+  const btn      = document.getElementById('gnubg-btn');
+  try {
+    const res  = await fetch('/api/gnubg/status');
+    const data = await res.json();
+    if (data.available) {
+      statusEl.innerHTML = `<span style="color:#22c55e">✅ gnubg hazır</span> <span style="opacity:.4">${data.version||''}</span>`;
+    } else {
+      statusEl.innerHTML = `<span style="color:#ef4444">❌ gnubg bulunamadı</span>`;
+    }
+    btn.disabled = false;
+  } catch(e) {
+    statusEl.innerHTML = `<span style="color:#f59e0b">⚠ ${e.message}</span>`;
+    btn.disabled = false;
+  }
+}
+
+async function startAnalysis() {
+  const btn      = document.getElementById('gnubg-btn');
+  const progress = document.getElementById('gnubg-progress');
+  btn.disabled   = true;
+  btn.textContent = '⏳ Analiz ediliyor...';
+  progress.style.display = 'block';
+  progress.textContent   = `0 / ${history.length} tur`;
+
+  try {
+    const res  = await fetch('/api/gnubg/analyze-game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ turnHistory: history })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    gnubgResults = data.results || [];
+
+    progress.textContent = `${gnubgResults.filter(r=>!r.skipped).length} tur analiz edildi`;
+    btn.textContent = '✅ Tamamlandı';
+    btn.style.cssText = 'background:var(--green-dim);border-color:rgba(34,197,94,0.4);color:var(--green)';
+
+    // PR kartlarını güncelle
+    updatePRCards(gnubgResults);
+
+    // Listeyi yenile
+    renderMoveList();
+
+    // Aktif seçili turu yenile
+    if (selectedIdx !== null) selectTurn(selectedIdx);
+
+  } catch(err) {
+    progress.textContent = `Hata: ${err.message}`;
+    btn.disabled = false;
+    btn.textContent = '🔄 Tekrar Dene';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// YARDIMCILAR
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Nokta numarasını oyuncuya göre formatla ───────────────────────────────
+// Beyaz: 1→24 yönünde (1 = kendi ev, 24 = karşı ev)
+// Kırmızı: 24→1 yönünde — tahtadaki kendi perspektifinden 25-pt ile çevir
+function formatPt(pt, color) {
+  if (pt === 'bar') return 'bar';
+  if (pt === 'off') return 'off';
+  if (color === 'black') return (25 - pt).toString();
+  return pt.toString();
+}
+
+function fmtMove(m, color) {
+  const from = formatPt(m.from, color);
+  const to   = formatPt(m.to,   color);
+  return `${from}/${to}`;
+}
+
+function computeStats(hist) {
+  let hits=0, doubleTurns=0, passedTurns=0, bearOffTurns=0;
+  for (const t of hist) {
+    if (t.dice?.length===4) doubleTurns++;
+    if (!t.moves?.length) passedTurns++;
+    if (t.moves?.some(m=>m.to==='off')) bearOffTurns++;
+    hits += t.moves?.filter(m=>m.hit).length || 0;
+  }
+  return { hits, doubleTurns, passedTurns, bearOffTurns };
+}
+
+// Filtre
+window.setFilter = function(f) {
+  activeFilter = f;
+  document.querySelectorAll('.fpill').forEach(b => b.classList.remove('active'));
+  document.getElementById(`fp-${f === 'red' ? 'red' : f === 'optimal' ? 'opt' : f}`).classList.add('active');
+  renderMoveList();
+};
+
+}); // DOMContentLoaded
+</script>
+</body>
+</html>

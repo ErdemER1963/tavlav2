@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+*.md
+.env
+.env.*
+test_*.js
+test-*.js
+testMoves.js
+debug_*.js

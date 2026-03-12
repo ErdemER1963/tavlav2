@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tavla V2 – Online Çok Oyunculu</title>
+  <meta name="description" content="Cube aksiyonlu online tavla oyunu – iki oyuncu gerçek zamanlı oynayabilir.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ─── LOBİ EKRANI ─────────────────────────────────────────── -->
+  <div id="lobby-screen" class="screen active">
+    <div class="lobby-bg"></div>
+    <div class="lobby-container">
+      <div class="logo-wrap">
+        <div class="logo-dice">⚄</div>
+        <h1 class="logo-title">TAVLA <span>V2</span></h1>
+        <p class="logo-sub">Online · Cube Aksiyonlu · Gerçek Zamanlı</p>
+      </div>
+
+      <div class="lobby-card">
+        <div class="form-group">
+          <label for="player-name">OYUNCU ADI</label>
+          <input type="text" id="player-name" placeholder="Adınızı yazın..." maxlength="20">
+        </div>
+
+        <div class="lobby-tabs">
+          <button class="tab-btn active" data-tab="create">ODA OLUŞTUR</button>
+          <button class="tab-btn" data-tab="join">ODAYA KATIL</button>
+        </div>
+
+        <div id="tab-create" class="tab-content active">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Maç Uzunluğu</label>
+              <div class="chip-group" id="match-length-group">
+                <button class="chip" data-value="1">1</button>
+                <button class="chip" data-value="3">3</button>
+                <button class="chip active" data-value="5">5</button>
+                <button class="chip" data-value="7">7</button>
+                <button class="chip" data-value="9">9</button>
+                <button class="chip" data-value="11">11</button>
+                <button class="chip" data-value="13">13</button>
+                <button class="chip" data-value="15">15</button>
+                <button class="chip" data-value="17">17</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Maç Süresi (Dakika)</label>
+              <div class="chip-group" id="match-time-group">
+                <button class="chip" data-value="1">1 dk</button>
+                <button class="chip active" data-value="5">5 dk</button>
+                <button class="chip" data-value="11">11 dk</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-join" class="tab-content">
+          <div class="form-group">
+            <label for="room-id">Oda Kodu</label>
+            <div class="room-row">
+              <input type="text" id="room-id" placeholder="Kodu yapıştırın..." maxlength="10">
+              <button class="btn-secondary" id="gen-room-btn">Rastgele</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="join-btn">
+          <span>OYUNA KATIL</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="lobby-status" class="lobby-status hidden">
+        <div class="spinner"></div>
+        <span id="lobby-status-text">Bağlanıyor...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── OYUN EKRANI ─────────────────────────────────────────── -->
+  <div id="game-screen" class="screen">
+
+    <!-- Üst Bar -->
+    <header class="game-header">
+      <div class="header-left">
+        <span class="header-logo">🎲 TAVLA V2</span>
+        <span id="room-display" class="room-badge"></span>
+      </div>
+      <div class="header-center">
+        <div class="score-board">
+          <div class="score-player" id="score-white-wrap">
+            <div class="score-name" id="score-white-name">Beyaz</div>
+            <div class="score-val" id="score-white">0</div>
+          </div>
+          <div class="score-sep">–</div>
+          <div class="score-player" id="score-black-wrap">
+            <div class="score-name" id="score-black-name">Kırmızı</div>
+            <div class="score-val" id="score-black">0</div>
+          </div>
+        </div>
+        <div id="crawford-badge" class="crawford-badge hidden">CRAWFORD OYUNU</div>
+      </div>
+      <div class="header-right">
+        <div class="match-info">
+          <span id="match-length-display"></span>
+          <div id="timer-display" class="timer">--:--</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Ana Oyun Alanı -->
+    <main class="game-main">
+
+      <!-- Sol Panel: Beyaz Zarlar + Geri Al -->
+      <aside class="dice-panel left-panel">
+        <div class="panel-label">BEYAZ</div>
+        <div class="dice-area" id="white-dice-area"></div>
+        <div class="bearing-off-area" id="white-bearing" title="Beyaz Pul Toplama">
+          <div class="bearing-label">Toplanan</div>
+          <div class="bearing-pips" id="white-borne-off"></div>
+          <div class="bearing-count" id="white-borne-count">0</div>
+        </div>
+      </aside>
+
+      <!-- Merkez: Tahta -->
+      <section class="board-section">
+        <!-- Tavla Tahtası (Canvas) -->
+        <div class="board-wrapper">
+          <canvas id="board-canvas" width="1180" height="700"></canvas>
+
+          <!-- Küp Paneli (Sidebar olarak board içine) -->
+          <div class="cube-sidebar" id="cube-sidebar">
+            <div class="cube-panel" id="cube-panel">
+              <div class="cube-display" id="cube-display">
+                <div class="cube-face" id="cube-face">1</div>
+              </div>
+              <div class="cube-owner-label" id="cube-owner-label">SERBEST</div>
+              <div id="cube-action-row" class="cube-action-row hidden">
+                <button class="btn-double" id="btn-double">✕2 ÇİFT!</button>
+              </div>
+              <div id="cube-respond-row" class="cube-respond-row hidden">
+                <div class="cube-respond-info" id="cube-respond-info"></div>
+                <button class="btn-accept" id="btn-accept">✓ KABUL</button>
+                <button class="btn-decline" id="btn-decline">✗ REDDET</button>
+              </div>
+            </div>
+          </div>
+          <!-- Bar (Cezaevi) Göstergesi -->
+          <div class="bar-overlay" id="bar-overlay">
+            <div class="bar-top" id="bar-black-area">
+              <div class="bar-label">⬛ Bar</div>
+              <div class="bar-count" id="bar-black-count">0</div>
+            </div>
+            <div class="bar-bottom" id="bar-white-area">
+              <div class="bar-label">⬜ Bar</div>
+              <div class="bar-count" id="bar-white-count">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zar At Butonu -->
+        <div class="roll-area">
+          <div class="btn-row">
+            <button class="btn-done hidden" id="done-btn">✅ Tamam</button>
+            <button class="btn-roll hidden" id="roll-btn">🎲 Zar At</button>
+            <button class="btn-undo" id="undo-btn" disabled>↩ Geri Al</button>
+          </div>
+          <div class="turn-indicator" id="turn-indicator"></div>
+        </div>
+
+      </section>
+
+      <!-- Sağ Panel: Siyah Zarlar + Bearing Off -->
+      <aside class="dice-panel right-panel">
+        <div class="panel-label" style="color:#ef4444;">KIRMIZI</div>
+        <div class="dice-area" id="black-dice-area"></div>
+        <div class="bearing-off-area" id="black-bearing" title="Siyah Pul Toplama">
+          <div class="bearing-label">Toplanan</div>
+          <div class="bearing-pips" id="black-borne-off"></div>
+          <div class="bearing-count" id="black-borne-count">0</div>
+        </div>
+      </aside>
+
+    </main>
+
+    <!-- Alt Bar: Durum Mesajları -->
+    <footer class="game-footer">
+      <div id="game-status-msg" class="status-msg"></div>
+    </footer>
+
+  </div>
+
+  <!-- ─── OVERLAY: Oyun Sonu / Bildirim ──────────────────────── -->
+  <div id="overlay" class="overlay hidden">
+    <div class="overlay-card">
+      <div class="overlay-emoji" id="overlay-emoji">🎉</div>
+      <h2 id="overlay-title">Oyun Bitti!</h2>
+      <p id="overlay-msg"></p>
+      <button class="btn-primary" id="overlay-close">Devam</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+
+</html>
