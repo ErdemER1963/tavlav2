@@ -14,59 +14,55 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# gnubg kaynak kodunu indir ve derle (sadece CLI, GUI yok)
 RUN wget -q https://ftp.gnu.org/gnu/gnubg/gnubg-release-1.08.003-sources.tar.gz \
     && tar -xzf gnubg-release-1.08.003-sources.tar.gz \
     && cd gnubg-1.08.003 \
-    && ./configure \
-        --without-gtk \
-        --without-board3d \
-        --prefix=/usr/local \
+    && ./configure --without-gtk --without-board3d --prefix=/usr/local \
     && make -j$(nproc) \
     && make install \
-    && cd .. \
-    && rm -rf gnubg-*
+    && cd .. && rm -rf gnubg-*
 
-# Derleme sonucunu doğrula
-RUN ls -la /usr/local/bin/gnubg && /usr/local/bin/gnubg --version || true
+# Hangi .so dosyaları gerekiyor — bunu log'a yaz
+RUN ldd /usr/local/bin/gnubg
 
 # ─── Aşama 2: Node.js uygulama ────────────────────────────────────────────────
 FROM node:20-slim
 
-# gnubg çalışma bağımlılıkları
+# Tüm olası bağımlılıkları kur
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     libcairo2 \
     libpango-1.0-0 \
+    libpangocairo-1.0-0 \
     libreadline8 \
     libsqlite3-0 \
-    libpangocairo-1.0-0 \
+    libpython3.11 \
+    libfontconfig1 \
+    libfreetype6 \
+    libpng16-16 \
+    libpixman-1-0 \
+    libxcb-shm0 \
+    libxcb-render0 \
+    libxrender1 \
+    libx11-6 \
     && rm -rf /var/lib/apt/lists/*
 
-# gnubg binary kopyala
 COPY --from=gnubg-builder /usr/local/bin/gnubg /usr/local/bin/gnubg
-
-# gnubg veri dosyaları (neural net weights vb.)
 COPY --from=gnubg-builder /usr/local/share/gnubg /usr/local/share/gnubg
 
-# gnubg-cli symlink oluştur (gnubg-bridge.js 'gnubg-cli' olarak çağırıyor)
 RUN ln -sf /usr/local/bin/gnubg /usr/local/bin/gnubg-cli \
     && chmod +x /usr/local/bin/gnubg
 
-# Kurulumu doğrula
-RUN which gnubg-cli && gnubg-cli --version || echo "gnubg-cli kuruldu ama --version çalışmadı"
+# Eksik .so var mı kontrol et
+RUN ldd /usr/local/bin/gnubg-cli || true
 
-# Çalışma dizini
+# gnubg gerçekten çalışıyor mu test et
+RUN echo "quit" | gnubg-cli --tty 2>&1 || true
+
 WORKDIR /app
-
-# Bağımlılıkları önce kopyala (Docker cache optimizasyonu)
 COPY package*.json ./
 RUN npm ci --only=production
-
-# Uygulama dosyalarını kopyala
 COPY . .
 
-# Railway dinamik port kullanır
 EXPOSE 3001
-
 CMD ["node", "server.js"]
