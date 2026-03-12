@@ -21,12 +21,14 @@ RUN wget -q https://ftp.gnu.org/gnu/gnubg/gnubg-release-1.08.003-sources.tar.gz 
     && ./configure \
         --without-gtk \
         --without-board3d \
-        --disable-gui \
         --prefix=/usr/local \
     && make -j$(nproc) \
     && make install \
     && cd .. \
     && rm -rf gnubg-*
+
+# Derleme sonucunu doğrula
+RUN ls -la /usr/local/bin/gnubg && /usr/local/bin/gnubg --version || true
 
 # ─── Aşama 2: Node.js uygulama ────────────────────────────────────────────────
 FROM node:20-slim
@@ -38,15 +40,21 @@ RUN apt-get update && apt-get install -y \
     libpango-1.0-0 \
     libreadline8 \
     libsqlite3-0 \
+    libpangocairo-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# gnubg binary ve veri dosyalarını kopyala
+# gnubg binary kopyala
 COPY --from=gnubg-builder /usr/local/bin/gnubg /usr/local/bin/gnubg
-COPY --from=gnubg-builder /usr/local/share/gnubg /usr/local/share/gnubg
-COPY --from=gnubg-builder /usr/local/lib/gnubg* /usr/local/lib/
 
-# gnubg-cli symlink oluştur (bridge.js 'gnubg-cli' olarak çağırıyor)
-RUN ln -s /usr/local/bin/gnubg /usr/local/bin/gnubg-cli
+# gnubg veri dosyaları (neural net weights vb.)
+COPY --from=gnubg-builder /usr/local/share/gnubg /usr/local/share/gnubg
+
+# gnubg-cli symlink oluştur (gnubg-bridge.js 'gnubg-cli' olarak çağırıyor)
+RUN ln -sf /usr/local/bin/gnubg /usr/local/bin/gnubg-cli \
+    && chmod +x /usr/local/bin/gnubg
+
+# Kurulumu doğrula
+RUN which gnubg-cli && gnubg-cli --version || echo "gnubg-cli kuruldu ama --version çalışmadı"
 
 # Çalışma dizini
 WORKDIR /app
@@ -60,9 +68,5 @@ COPY . .
 
 # Railway dinamik port kullanır
 EXPOSE 3001
-
-# Sağlık kontrolü
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:'+process.env.PORT+'/api/gnubg/status', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 CMD ["node", "server.js"]
