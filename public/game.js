@@ -30,62 +30,39 @@ document.addEventListener('DOMContentLoaded', () => {
     setupCanvas();
 });
 
-function setupLobby() {
-    // Tab geçişleri
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            btn.classList.add('active');
-            document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-        });
-    });
+window.joinGame = joinGame;
 
-    // Chip grupları
-    document.querySelectorAll('.chip-group').forEach(group => {
-        group.querySelectorAll('.chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
-            });
-        });
-    });
-
-    // Rastgele oda kodu üret
-    document.getElementById('gen-room-btn').addEventListener('click', () => {
-        document.getElementById('room-id').value = Math.random().toString(36).substring(2, 7).toUpperCase();
-    });
-    // Varsayılan oda kodu
-    document.getElementById('room-id').value = 'TAVLA';
-
-    document.getElementById('join-btn').addEventListener('click', joinGame);
-}
-
-function joinGame() {
-    myName = document.getElementById('player-name').value.trim();
-    if (!myName) {
-        showOverlay('⚠', 'Eksik Bilgi', 'Lütfen oyuna katılmadan önce bir oyuncu adı girin.');
-        setTimeout(() => hideOverlay(), 3000);
+function joinGame(overrides = null) {
+    if (overrides) {
+        myName = overrides.playerName || 'Oyuncu';
+        matchSettings = {
+            matchLength: overrides.matchLength || 5,
+            matchTime: overrides.matchTime || 5,
+            isTrainingMode: !!overrides.isTrainingMode,
+            isBotGame: !!overrides.isBotGame
+        };
+        const roomId = overrides.roomId || 'TAVLA';
+        showLobbyStatus('Bağlanılıyor...');
+        connectWS(roomId);
         return;
     }
-    const roomId = document.getElementById('room-id').value.trim() || 'TAVLA';
-    // Maç uzunluğu: önce slider, yoksa chip (eski UI uyumu)
-    const sliderEl = document.getElementById('match-length-hidden') || document.getElementById('match-length-slider');
-    const chipLength = document.querySelector('#match-length-group .chip.active');
-    const matchLength = sliderEl
-        ? parseInt(sliderEl.value)
-        : chipLength ? parseInt(chipLength.dataset.value) : 5;
 
-    // Maç süresi: önce ikon kart, yoksa chip (eski UI uyumu)
-    const activeTimeCard = document.querySelector('.time-card.active');
+    // Eski (Fallback) Mantık
+    myName = document.getElementById('player-name')?.value.trim() || 'Oyuncu';
+    const roomId = document.getElementById('room-id')?.value.trim() || 'TAVLA';
+    
+    const sliderEl = document.getElementById('match-length-hidden');
+    const matchLength = sliderEl ? parseInt(sliderEl.value) : 5;
+
     const timeHidden = document.getElementById('match-time-hidden');
-    const chipTime = document.querySelector('#match-time-group .chip.active');
-    const matchTime = activeTimeCard
-        ? parseInt(activeTimeCard.dataset.value)
-        : timeHidden ? parseInt(timeHidden.value)
-        : chipTime ? parseInt(chipTime.dataset.value) : 5;
-    matchSettings = { matchLength, matchTime };
+    const matchTime = timeHidden ? parseInt(timeHidden.value) : 5;
+    
+    const toggleEl = document.getElementById('training-mode-toggle');
+    const isTrainingMode = toggleEl ? toggleEl.checked : false;
+
+    const isBotGame = !!window._isBotGame;
+
+    matchSettings = { matchLength, matchTime, isTrainingMode, isBotGame };
 
     showLobbyStatus('Sunucuya bağlanılıyor...');
     connectWS(roomId);
@@ -296,7 +273,108 @@ function setupGameEvents() {
         document.getElementById('cube-respond-row').classList.add('hidden');
     });
     // Tamam (Sıra Bitir)
-    document.getElementById('done-btn').addEventListener('click', () => send({ type: 'end_turn' }));
+    document.getElementById('done-btn').addEventListener('click', async () => {
+        if (matchSettings.isTrainingMode && gameState && gameState.phase === 'moving' && gameState.turn === myColor) {
+            if (gameState.legalMoves && gameState.legalMoves.length > 0) {
+                send({ type: 'end_turn' });
+                return;
+            }
+
+            const btn = document.getElementById('done-btn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Analiz...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/gnubg/analyze-position', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        board: gameState.currentTurnBoard.board,
+                        bar: gameState.currentTurnBoard.bar,
+                        borneOff: gameState.currentTurnBoard.borneOff,
+                        turn: gameState.turn,
+                        dice: gameState.dice
+                    })
+                });
+                
+                if (!res.ok) throw new Error("GNUBG Error");
+                const data = await res.json();
+                
+                const actualMoves = gameState.currentTurnMoves || [];
+                
+                function isSim(am, tm) {
+                    if (!am?.length || !tm?.length) return false;
+                    const amSet = new Set(am.map(m => `${m.from}-${m.to}`));
+                    return tm.every(m => amSet.has(`${m.from}-${m.to}`));
+                }
+
+                let equityLoss = null;
+                const bestEq = data.topMoves[0]?.equity || 0;
+                let foundMatch = false;
+
+                for (const cand of data.topMoves) {
+                    if (isSim(actualMoves, cand.moves)) {
+                        equityLoss = bestEq - cand.equity;
+                        foundMatch = true;
+                        break;
+                    }
+                }
+
+                if (!foundMatch && data.topMoves.length > 0) {
+                     equityLoss = 999; 
+                }
+
+                if (equityLoss !== null && equityLoss > 0.05) {
+                    const isBlunder = equityLoss > 0.1;
+                    const lossText = equityLoss === 999 ? "ÇOK BÜYÜK HATA (Geçersiz veya Çok Kötü Hamle)" : 
+                                    (isBlunder ? `BÜYÜK HATA (−${equityLoss.toFixed(3)} Puan)` : `HATA (−${equityLoss.toFixed(3)} Puan)`);
+                    
+                    const bestMoves = data.topMoves[0].moves || [];
+                    const formatPt = (pt) => {
+                        if (pt === 'bar') return 'bar';
+                        if (pt === 'off') return 'off';
+                        if (myColor === 'black') return (25 - parseInt(pt)).toString();
+                        return pt;
+                    };
+                    const bestStr = bestMoves.map(m => `${formatPt(m.from)}→${formatPt(m.to)}`).join(' ');
+                    const actualStr = actualMoves.map(m => `${formatPt(m.from)}→${formatPt(m.to)}`).join(' ') || 'Pas';
+
+                    document.getElementById('tutor-msg').innerHTML = 
+                        `<strong style="color:var(--red); font-size:16px;">${lossText}</strong><br><br>` + 
+                        `<span style="opacity:0.8">Sizin Hamleniz:</span> <b style="color:#fff">${actualStr}</b><br><br>` + 
+                        `<span style="opacity:0.8;color:var(--green)">GNUBG Önerisi:</span> <b style="color:var(--green)">${bestStr}</b>`;
+                    
+                    document.getElementById('tutor-overlay').classList.remove('hidden');
+
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    return; 
+                }
+
+            } catch (e) {
+                console.error("Tutor Analiz Hatası", e);
+            }
+            
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+
+        send({ type: 'end_turn' });
+    });
+
+    // Tutor Modal Eylemleri
+    document.getElementById('tutor-undo-btn').addEventListener('click', () => {
+        document.getElementById('tutor-overlay').classList.add('hidden');
+        while (gameState.moveHistory && gameState.moveHistory.length > 0) {
+            send({ type: 'undo' });
+        }
+    });
+
+    document.getElementById('tutor-force-btn').addEventListener('click', () => {
+        document.getElementById('tutor-overlay').classList.add('hidden');
+        send({ type: 'end_turn' });
+    });
     // Overlay kapat
     document.getElementById('overlay-close').addEventListener('click', hideOverlay);
     // Canvas olayları
@@ -345,8 +423,9 @@ function renderBoard() {
 
     ctx.clearRect(0, 0, BOARD_W, BOARD_H);
 
-    // Arka plan
-    ctx.fillStyle = '#2d1b00';
+    // Glassmorphism için arka planı temiz bırakıyoruz (CSS'teki board-wrapper blur'u gözüksün)
+    // Eğer hafif bir renk istenirse rgba kullanılabilir:
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
     ctx.fillRect(0, 0, BOARD_W, BOARD_H);
 
     // Orta çizgi (bar alanı)
@@ -369,8 +448,8 @@ function renderBoard() {
         drawChecker(dragState.currentX, dragState.currentY, color, true);
     }
 
-    // Süsleme çizgisi
-    ctx.strokeStyle = 'rgba(245,158,11,0.15)';
+    // Süsleme çizgisi (Glassmorphism kenarlığı gibi)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     ctx.strokeRect(0, 0, BOARD_W, BOARD_H);
 }
@@ -400,11 +479,11 @@ function drawPoints(barX) {
 
         // Gradient for triangle
         const grad = ctx.createLinearGradient(0, y, 0, tipY);
-        if (i % 2 === 0) { // point-odd in css but based on 0-idx
-            grad.addColorStop(0, '#7c3aed');
-            grad.addColorStop(1, '#5b21b6');
-        } else {
-            grad.addColorStop(0, '#0f766e');
+        if (i % 2 === 0) { // Mor / Violet
+            grad.addColorStop(0, '#8b5cf6');
+            grad.addColorStop(1, '#4c1d95');
+        } else { // Turkuaz / Teal
+            grad.addColorStop(0, '#14b8a6');
             grad.addColorStop(1, '#115e59');
         }
 
@@ -414,14 +493,15 @@ function drawPoints(barX) {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Nokta numarası etiketi (1-24 standart tavla numaralandırması)
+        // Nokta numarası etiketi (1-24 numaralandırması kendi rengine göre)
         const { x: labelX, isBottom: labelBottom } = getPointCenter(i);
         const labelY = labelBottom ? BOARD_H - 8 : 8;
+        const displayNum = myColor === 'black' ? (25 - i) : i;
         ctx.fillStyle = 'rgba(255,255,255,0.55)';
         ctx.font = 'bold 11px Outfit, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = labelBottom ? 'bottom' : 'top';
-        ctx.fillText(i, labelX, labelY);
+        ctx.fillText(displayNum, labelX, labelY);
     }
 }
 
@@ -473,10 +553,10 @@ function drawCheckers(gs) {
     // Bar - orta dikey çizgi
     const cx = barX + BAR_W / 2;
 
-    // Bar arka planı
-    ctx.fillStyle = 'rgba(10, 12, 18, 0.95)';
+    // Bar arka planı (Daha şık ve şeffaf cam hissi)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
     ctx.fillRect(barX, 0, BAR_W, BOARD_H);
-    ctx.strokeStyle = 'rgba(245,158,11,0.25)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1;
     ctx.strokeRect(barX, 0, BAR_W, BOARD_H);
 

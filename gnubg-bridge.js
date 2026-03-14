@@ -7,32 +7,25 @@ const { spawn } = require('child_process');
 // ─── Position ID Encode ───────────────────────────────────────────────────────
 // Spec: https://www.gnu.org/software/gnubg/manual/gnubg.html#position-id
 // Doğrulanmış: başlangıç pozisyonu → "4HPwATDgc/ABMA"
-function boardToPositionID(board, bar, borneOff, turn) {
+// GNUBG "set board" komutunu çalıştırırken (yeni oyunda turn=0 olduğu için)
+// encode'un HER ZAMAN White'ın perspektifinden (absolute) yapılması gerekiyor. 
+// Çünkü set turn 1 (black) sonradan veriliyor, GNUBG kendisi internal çevirmesini yapıyor.
+function boardToPositionID(board, bar, borneOff) {
     const p1 = [], p2 = [];
 
-    if (turn === 'white') {
-        for (let pt = 1; pt <= 24; pt++) {
-            const n = board[pt];
-            if (n > 0) for (let j = 0; j < n; j++) p1.push(pt);
-        }
-        for (let j = 0; j < (bar.white || 0); j++) p1.push(25);
-        for (let pt = 1; pt <= 24; pt++) {
-            const n = -board[pt];
-            if (n > 0) for (let j = 0; j < n; j++) p2.push(25 - pt);
-        }
-        for (let j = 0; j < (bar.black || 0); j++) p2.push(25);
-    } else {
-        for (let pt = 1; pt <= 24; pt++) {
-            const n = -board[pt];
-            if (n > 0) for (let j = 0; j < n; j++) p1.push(25 - pt);
-        }
-        for (let j = 0; j < (bar.black || 0); j++) p1.push(25);
-        for (let pt = 1; pt <= 24; pt++) {
-            const n = board[pt];
-            if (n > 0) for (let j = 0; j < n; j++) p2.push(pt);
-        }
-        for (let j = 0; j < (bar.white || 0); j++) p2.push(25);
+    // Player 1 (White) kendi perspektifi (ev=1)
+    for (let pt = 1; pt <= 24; pt++) {
+        const n = board[pt];
+        if (n > 0) for (let j = 0; j < n; j++) p1.push(pt);
     }
+    for (let j = 0; j < (bar.white || 0); j++) p1.push(25);
+    
+    // Player 2 (Black) kendi perspektifi (Black ev=24, yani 25-pt)
+    for (let pt = 1; pt <= 24; pt++) {
+        const n = -board[pt];
+        if (n > 0) for (let j = 0; j < n; j++) p2.push(25 - pt);
+    }
+    for (let j = 0; j < (bar.black || 0); j++) p2.push(25);
 
     // GNU spec: her nokta için önce o noktadaki pullar (1 bit'ler), sonra separator (0 bit)
     function encode(pieces) {
@@ -142,7 +135,7 @@ function parseMoveStr(moveStr, turn) {
 // ─── Public API ──────────────────────────────────────────────────────────────
 async function analyzePosition(board, bar, borneOff, turn, dice) {
     try {
-        const posID   = boardToPositionID(board, bar, borneOff, turn);
+        const posID   = boardToPositionID(board, bar, borneOff);
         const turnIdx = turn === 'white' ? 0 : 1;
         // Çift zar: [d,d,d,d] → gnubg'ye sadece d d yeter
         const d1 = dice[0];

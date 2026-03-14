@@ -10,6 +10,15 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Modern Tutor Toggle Switch (Isolated) */
+    .tutor-switch { position: relative; display: inline-block; width: 48px; height: 26px; margin: 0; flex-shrink: 0; }
+    .tutor-switch input { opacity: 0; width: 0; height: 0; position: absolute; margin: 0; padding: 0; pointer-events: none; }
+    .tutor-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.08); transition: .3s; border-radius: 34px; border: 1px solid rgba(255,255,255,0.15); display: block !important; }
+    .tutor-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: #64748b; transition: .3s; border-radius: 50%; display: block !important; box-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    .tutor-switch input:checked + .tutor-slider { background-color: var(--amber, #f59e0b); border-color: var(--amber, #f59e0b); box-shadow: 0 0 16px rgba(245, 158, 11, 0.4); }
+    .tutor-switch input:checked + .tutor-slider:before { transform: translateX(22px); background-color: #fff; }
+  </style>
 </head>
 
 <body>
@@ -27,99 +36,119 @@
         <p class="logo-sub">Online · Cube Aksiyonlu · Gerçek Zamanlı</p>
       </div>
 
-      <div class="lobby-card">
+      <div class="lobby-card" id="lobby-card-v2">
 
-        <!-- ── Avatar + İsim ── -->
-        <div class="form-group">
-          <label>OYUNCU ADI</label>
-          <div class="avatar-row" id="avatar-row">
-            <button class="avatar-btn active" data-avatar="🎯">🎯</button>
-            <button class="avatar-btn" data-avatar="🦁">🦁</button>
-            <button class="avatar-btn" data-avatar="🐺">🐺</button>
-            <button class="avatar-btn" data-avatar="🦊">🦊</button>
-            <button class="avatar-btn" data-avatar="🐉">🐉</button>
-            <button class="avatar-btn" data-avatar="👑">👑</button>
+        <!-- 1. ANA MENÜ GÖRÜNÜMÜ (Default) -->
+        <div id="view-main" class="lobby-view active">
+          <div class="menu-grid">
+            <button class="menu-btn" data-target="view-create">
+              <span class="menu-icon">➕</span>
+              <span class="menu-label">ODA OLUŞTUR</span>
+              <span class="menu-sub">Arkadaşınla oyna</span>
+            </button>
+            <button class="menu-btn" data-target="view-join">
+              <span class="menu-icon">➔</span>
+              <span class="menu-label">ODAYA KATIL</span>
+              <span class="menu-sub">Koda sahipsen</span>
+            </button>
+            <button class="menu-btn accent" data-target="view-bot">
+              <span class="menu-icon">🤖</span>
+              <span class="menu-label">BOT İLE OYNA</span>
+              <span class="menu-sub">GNUBG'ye meydan oku</span>
+            </button>
           </div>
-          <input type="text" id="player-name" placeholder="Adınızı yazın..." maxlength="20">
         </div>
 
-        <!-- ── Alt Çizgi Sekme ── -->
-        <div class="underline-tabs" id="underline-tabs">
-          <button class="utab active" data-tab="create">Oda Oluştur</button>
-          <button class="utab" data-tab="join">Odaya Katıl</button>
-          <div class="utab-ink" id="utab-ink"></div>
-        </div>
-
-        <!-- ── Oda Oluştur ── -->
-        <div id="tab-create" class="tab-content active">
-
-          <!-- Maç Uzunluğu: Slider -->
+        <!-- 2. ODA OLUŞTUR GÖRÜNÜMÜ -->
+        <div id="view-create" class="lobby-view">
+          <div class="view-header">
+            <button class="back-btn" data-target="view-main">←</button>
+            <h3>ODA OLUŞTUR</h3>
+          </div>
+          
           <div class="form-group">
-            <label>MAÇ UZUNLUĞU</label>
-            <div class="slider-wrap">
-              <div class="slider-val-display">
-                <span id="match-length-val">5</span>
-                <span class="slider-val-label">puan</span>
+            <label>OYUNCU ADI</label>
+            <input type="text" class="v2-input" id="create-player-name" placeholder="Adınızı yazın...">
+          </div>
+
+          <div class="form-group">
+            <label>ODA İSMİ</label>
+            <div class="input-action-row">
+              <input type="text" class="v2-input" id="create-room-id" placeholder="Oda ismi...">
+              <button class="btn-action-small" id="btn-create-random">Rastgele</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>MAÇ AYARLARI</label>
+            <!-- Maç Uzunluğu Slider (Eski ID'leri koruyorum game.js için) -->
+            <div class="slider-wrap v2-slider">
+              <div class="slider-info">Maç Uzunluğu: <span id="match-length-val">5</span> puan</div>
+              <input type="range" id="match-length-slider" min="1" max="17" step="2" value="5" class="match-slider">
+              <input type="hidden" id="match-length-hidden" value="5">
+            </div>
+            
+            <!-- Maç Süresi Kartları -->
+            <div class="time-cards-v2" id="match-time-group">
+              <button class="time-card-v2 active" data-value="1">1dk</button>
+              <button class="time-card-v2" data-value="5">5dk</button>
+              <button class="time-card-v2" data-value="11">11dk</button>
+            </div>
+          </div>
+
+          <button class="btn-primary v2-start-btn" data-action="create">ODAYI KUR & KATIL</button>
+        </div>
+
+        <!-- 3. ODAYA KATIL GÖRÜNÜMÜ -->
+        <div id="view-join" class="lobby-view">
+          <div class="view-header">
+            <button class="back-btn" data-target="view-main">←</button>
+            <h3>ODAYA KATIL</h3>
+          </div>
+
+          <div class="form-group">
+            <label>OYUNCU ADI</label>
+            <input type="text" class="v2-input" id="join-player-name" placeholder="Adınızı yazın...">
+          </div>
+
+          <div class="form-group">
+            <label>ODA KODU</label>
+            <input type="text" class="v2-input" id="join-room-id" placeholder="Kodu buraya yapıştırın...">
+          </div>
+
+          <button class="btn-primary v2-start-btn" data-action="join">MAÇA KATIL</button>
+        </div>
+
+        <!-- 4. BOT İLE OYNA GÖRÜNÜMÜ -->
+        <div id="view-bot" class="lobby-view">
+          <div class="view-header">
+            <button class="back-btn" data-target="view-main">←</button>
+            <h3>BOT İLE OYNA (CPU)</h3>
+          </div>
+
+          <div class="form-group">
+            <label>OYUNCU ADI</label>
+            <input type="text" class="v2-input" id="bot-player-name" placeholder="Adınızı yazın...">
+          </div>
+
+          <div class="form-group">
+            <label>MAÇ AYARLARI</label>
+            <div class="slider-wrap v2-slider">
+              <div class="slider-info">Maç Uzunluğu (Puan)</div>
+              <div class="bot-settings-chips">
+                <button class="chip-v2 active" data-value="1">1</button>
+                <button class="chip-v2" data-value="3">3</button>
+                <button class="chip-v2" data-value="5">5</button>
               </div>
-              <input
-                type="range"
-                id="match-length-slider"
-                min="1" max="17" step="2" value="5"
-                class="match-slider"
-              >
-              <div class="slider-ticks">
-                <span>1</span><span>3</span><span>5</span><span>7</span><span>9</span><span>11</span><span>13</span><span>15</span><span>17</span>
-              </div>
-            </div>
-            <!-- hidden input: game.js bu değeri okur -->
-            <input type="hidden" id="match-length-hidden" value="5">
-          </div>
-
-          <!-- Maç Süresi: İkon Kartları -->
-          <div class="form-group">
-            <label>MAÇ SÜRESİ</label>
-            <div class="time-cards" id="match-time-group">
-              <button class="time-card" data-value="1">
-                <span class="time-icon">⚡</span>
-                <span class="time-name">Hızlı</span>
-                <span class="time-min">1 dk</span>
-              </button>
-              <button class="time-card active" data-value="5">
-                <span class="time-icon">🎯</span>
-                <span class="time-name">Normal</span>
-                <span class="time-min">5 dk</span>
-              </button>
-              <button class="time-card" data-value="11">
-                <span class="time-icon">🐢</span>
-                <span class="time-name">Rahat</span>
-                <span class="time-min">11 dk</span>
-              </button>
             </div>
           </div>
 
+          <div class="bot-info-card">
+            <p>🤖 Rakibiniz <strong>GNUBG</strong> profesyonel tavla motoru olacaktır. Bol şans!</p>
+          </div>
+
+          <button class="btn-primary v2-start-btn bot-accent" data-action="bot">MAÇI BAŞLAT</button>
         </div>
-
-        <!-- ── Odaya Katıl ── -->
-        <div id="tab-join" class="tab-content">
-          <div class="form-group">
-            <label for="room-id">ODA KODU</label>
-            <div class="room-row">
-              <input type="text" id="room-id" placeholder="Kodu yapıştırın..." maxlength="10">
-              <button class="btn-secondary" id="gen-room-btn">Rastgele</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── Dolum Animasyonlu Buton ── -->
-        <button class="btn-primary btn-fill" id="join-btn">
-          <span class="btn-fill-bg"></span>
-          <span class="btn-fill-content">
-            OYUNA KATIL
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </button>
 
       </div><!-- /lobby-card -->
 
@@ -254,125 +283,137 @@
     </div>
   </div>
 
+  <!-- ─── OVERLAY: Tutor (Eğitim Modu) Uyarısı ──────────────────────── -->
+  <div id="tutor-overlay" class="overlay hidden" style="z-index: 10000; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
+    <div class="overlay-card" style="border: 2px solid var(--amber-bd); box-shadow: 0 10px 40px rgba(245,158,11,0.2); max-width: 400px; padding: 24px;">
+      <div class="overlay-emoji" style="font-size: 48px; margin-bottom: 12px;">🎓</div>
+      <h2 style="color: var(--amber); margin-bottom: 16px; font-size: 22px;">Eğitmen Uyarısı</h2>
+      <p id="tutor-msg" style="color: var(--text); font-size: 14px; line-height: 1.5; margin-bottom: 20px; text-align: left; background: var(--surface2); padding: 12px; border-radius: 8px;">
+        <!-- Mesaj buraya gelecek -->
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: stretch;">
+        <button class="btn-secondary" id="tutor-undo-btn" style="flex: 1;">↩ Geri Al</button>
+        <button class="btn-primary" id="tutor-force-btn" style="flex: 1; background: var(--red-dim); border-color: rgba(239,68,68,0.4); color: var(--red);">Yine De Oyna</button>
+      </div>
+    </div>
+  </div>
+
   <script src="game.js"></script>
 
   <!-- ─── Lobi Bileşen JS ─────────────────────────────────────── -->
   <script>
   (function() {
+    // Görünüm Yönetimi
+    const views = document.querySelectorAll('.lobby-view');
+    const menuBtns = document.querySelectorAll('.menu-btn');
+    const backBtns = document.querySelectorAll('.back-btn');
 
-    /* ── Avatar seçici ── */
-    const avatarBtns = document.querySelectorAll('.avatar-btn');
-    avatarBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        avatarBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-
-    /* ── Alt çizgi sekme ink ── */
-    const tabs    = document.querySelectorAll('.utab');
-    const ink     = document.getElementById('utab-ink');
-    const tabWrap = document.getElementById('underline-tabs');
-
-    function moveInk(btn) {
-      if (!ink || !btn) return;
-      const wRect = tabWrap.getBoundingClientRect();
-      const bRect = btn.getBoundingClientRect();
-      ink.style.left  = (bRect.left - wRect.left) + 'px';
-      ink.style.width = bRect.width + 'px';
+    function showView(targetId) {
+      views.forEach(v => v.classList.remove('active'));
+      const target = document.getElementById(targetId);
+      if (target) target.classList.add('active');
     }
 
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        moveInk(tab);
-        // Tab içerik aç/kapat
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        const target = document.getElementById('tab-' + tab.dataset.tab);
-        if (target) target.classList.add('active');
-      });
+    menuBtns.forEach(btn => {
+      btn.addEventListener('click', () => showView(btn.dataset.target));
     });
 
-    // Başlangıçta ilk tab ink konumunu ayarla
-    requestAnimationFrame(() => moveInk(document.querySelector('.utab.active')));
-    window.addEventListener('resize', () => moveInk(document.querySelector('.utab.active')));
+    backBtns.forEach(btn => {
+      btn.addEventListener('click', () => showView(btn.dataset.target));
+    });
 
-    /* ── Maç uzunluğu slider ── */
-    const slider  = document.getElementById('match-length-slider');
+    // Rastgele Oda İsmi
+    const btnRandom = document.getElementById('btn-create-random');
+    const createRoomInput = document.getElementById('create-room-id');
+    if (btnRandom && createRoomInput) {
+      btnRandom.addEventListener('click', () => {
+        createRoomInput.value = Math.random().toString(36).substring(2, 7).toUpperCase();
+      });
+      // İlk değer
+      createRoomInput.value = Math.random().toString(36).substring(2, 7).toUpperCase();
+    }
+
+    // Maç Uzunluğu Slider kontrolü (Eski game.js uyumluluğu için ID'leri tuttum)
+    const slider = document.getElementById('match-length-slider');
     const valDisp = document.getElementById('match-length-val');
-    const hidden  = document.getElementById('match-length-hidden');
+    const hidden = document.getElementById('match-length-hidden');
 
     function updateSlider() {
+      if (!slider) return;
       const v = slider.value;
-      valDisp.textContent = v;
+      if (valDisp) valDisp.textContent = v;
       if (hidden) hidden.value = v;
-
-      // Slider dolum rengi
       const pct = ((v - 1) / 16) * 100;
-      slider.style.background =
-        'linear-gradient(to right, var(--clr-accent) ' + pct + '%, var(--clr-surface2) ' + pct + '%)';
-
-      // Sayı zıplama animasyonu
-      valDisp.style.transform = 'scale(1.18)';
-      clearTimeout(slider._t);
-      slider._t = setTimeout(() => { valDisp.style.transform = 'scale(1)'; }, 140);
+      slider.style.background = `linear-gradient(to right, var(--clr-accent) ${pct}%, var(--clr-surface2) ${pct}%)`;
     }
-
     if (slider) {
       slider.addEventListener('input', updateSlider);
-      updateSlider(); // ilk render
+      updateSlider();
     }
 
-    /* ── Süre ikon kartları ── */
-    const timeCards = document.querySelectorAll('.time-card');
+    // Süre Seçimi (V2)
+    const timeCards = document.querySelectorAll('.time-card-v2');
+    const timeHidden = document.createElement('input');
+    timeHidden.type = 'hidden';
+    timeHidden.id = 'match-time-hidden';
+    timeHidden.value = '1';
+    document.body.appendChild(timeHidden);
+
     timeCards.forEach(card => {
       card.addEventListener('click', () => {
         timeCards.forEach(c => c.classList.remove('active'));
         card.classList.add('active');
+        timeHidden.value = card.dataset.value;
       });
     });
 
-    /* ── game.js'in beklediği değerleri sağla ──
-       game.js büyük ihtimalle şunları okur:
-       - #player-name (input)
-       - .chip.active[data-value] (maç uzunluğu)  → slider ile değiştirdik, hidden input kullan
-       - .chip.active[data-value] (süre)           → time-card ile değiştirdik
-
-       game.js içindeki okuma mantığını bozmamak için
-       "getMatchLength" ve "getMatchTime" global fonksiyonları tanımla.
-       game.js bunları çağırıyorsa doğrudan çalışır;
-       chip.active okuyorsa aşağıdaki monkey-patch devreye girer.
-    ── */
-
-    // Süre seçimini data attribute ile takip et
-    let selectedTime = 5;
-    timeCards.forEach(c => {
-      c.addEventListener('click', () => { selectedTime = parseInt(c.dataset.value); });
-    });
-
-    // game.js .chip.active üzerinden okuyorsa:
-    // Aktif time-card'ı .chip.active gibi davranacak gizli bir chip'e yansıt
-    const timeHidden = document.createElement('input');
-    timeHidden.type = 'hidden';
-    timeHidden.id   = 'match-time-hidden';
-    timeHidden.value = '5';
-    document.body.appendChild(timeHidden);
-
-    timeCards.forEach(c => {
-      c.addEventListener('click', () => {
-        timeHidden.value = c.dataset.value;
+    // Bot Ayarları (Chip-v2)
+    const botChips = document.querySelectorAll('.chip-v2');
+    let botMatchLength = 1;
+    botChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        botChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        botMatchLength = parseInt(chip.dataset.value);
       });
     });
 
-    /* ── Dolum butonu loading state ── */
-    const joinBtn = document.getElementById('join-btn');
-    if (joinBtn) {
-      joinBtn.addEventListener('click', function() {
-        // Gerçek join işlemi game.js'de tetiklenir; biz sadece loading görselini ekleriz
-        setTimeout(() => joinBtn.classList.add('loading'), 10);
+    // Başlat Butonları (V2)
+    const startBtns = document.querySelectorAll('.v2-start-btn');
+    startBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action; // 'create', 'join', 'bot'
+        const nameInput = document.getElementById(action + '-player-name');
+        const roomInput = document.getElementById(action + '-room-id');
+        
+        const playerName = nameInput ? nameInput.value.trim() : 'Oyuncu';
+        let roomId = roomInput ? roomInput.value.trim() : 'TAVLA';
+        
+        let settings = {
+            matchLength: parseInt(hidden ? hidden.value : 5),
+            matchTime: parseInt(timeHidden ? timeHidden.value : 1),
+            isBotGame: (action === 'bot'),
+            isTrainingMode: document.getElementById('training-mode-toggle')?.checked || false
+        };
+
+        if (action === 'bot') {
+            roomId = 'BOT_' + Math.random().toString(36).substring(2, 6).toUpperCase();
+            settings.matchLength = botMatchLength;
+        }
+
+        // game.js içindeki joinGame tetikle (overrides ile)
+        if (typeof window.joinGame === 'function') {
+            window.joinGame({
+                playerName,
+                roomId,
+                matchLength: settings.matchLength,
+                matchTime: settings.matchTime,
+                isBotGame: settings.isBotGame,
+                isTrainingMode: settings.isTrainingMode
+            });
+        }
       });
-    }
+    });
 
   })();
   </script>

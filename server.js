@@ -440,6 +440,86 @@ function endTurn(room) {
   gs.currentTurnMoves = [];
   gs.currentTurnBoard = null;
   broadcast(room, { type: 'game_state', state: getPublicState(room) });
+
+  // Bot sırası mı?
+  setTimeout(() => triggerBotTurn(room), 500);
+}
+
+// ─── Bot (AI) Mantığı ───
+async function triggerBotTurn(room) {
+  const gs = room.gameState;
+  if (!gs || gs.phase === 'game_over') return;
+
+  const currentPlayer = room.players.find(p => p.color === gs.turn);
+  if (!currentPlayer || !currentPlayer.isBot) return;
+
+  // Bot sırası!
+  console.log(`[BOT] Bot sırası başladı (${gs.turn}, Phase: ${gs.phase})`);
+
+  if (gs.phase === 'waiting_roll') {
+    // 1 sn bekle ve zar at
+    setTimeout(() => {
+      if (gs.phase !== 'waiting_roll' || gs.turn !== currentPlayer.color) return;
+      
+      const dice = rollDice();
+      gs.dice = dice;
+      gs.diceUsed = [];
+      gs.phase = 'moving';
+      gs.currentTurnMoves = [];
+      gs.currentTurnBoard = JSON.parse(JSON.stringify({ board: gs.board, bar: gs.bar, borneOff: gs.borneOff }));
+
+      broadcast(room, { type: 'dice_rolled', dice, turn: gs.turn, state: getPublicState(room) });
+      
+      // Hamle aşamasına geç
+      setTimeout(() => triggerBotTurn(room), 1000);
+    }, 1200);
+
+  } else if (gs.phase === 'moving') {
+    // GNUBG'den hamle iste
+    try {
+      if (!gnubg) throw new Error("GNUBG Bridge mevcut değil");
+
+      const result = await gnubg.analyzePosition(gs.board, gs.bar, gs.borneOff, gs.turn, gs.dice);
+      
+      if (result.error || !result.bestMove) {
+        console.warn("[BOT] Hamle bulunamadı veya hata:", result.error);
+        setTimeout(() => endTurn(room), 500);
+        return;
+      }
+
+      console.log(`[BOT] GNUBG Hamlesi: ${result.bestMove.moveStr}`);
+      const botMoves = result.bestMove.moves || [];
+
+      // Hamleleri sırayla uygula
+      let delay = 800;
+      for (const m of botMoves) {
+        setTimeout(() => {
+          if (gs.phase !== 'moving' || gs.turn !== currentPlayer.color) return;
+          
+          // Geçerli hamle mi kontrol et (Emniyet için)
+          const legal = getLegalMoves(gs);
+          const valid = legal.find(lm => lm.from === m.from && lm.to === m.to);
+          
+          if (valid) {
+            applyMove(gs, valid);
+            if (gs.currentTurnMoves) gs.currentTurnMoves.push({...valid, hit: m.hit});
+            broadcast(room, { type: 'game_state', state: getPublicState(room) });
+          }
+        }, delay);
+        delay += 800;
+      }
+
+      // Tüm hamleler bittiğinde sırayı bitir
+      setTimeout(() => {
+        if (gs.phase === 'game_over') return;
+        endTurn(room);
+      }, delay + 500);
+
+    } catch (err) {
+      console.error("[BOT] Hata:", err.message);
+      setTimeout(() => endTurn(room), 1000);
+    }
+  }
 }
 
 function rollDice() {
@@ -492,8 +572,15 @@ function handleMessage(ws, room, msg) {
         return;
       }
 
+      // Vurma (hit) durumunu analiz için kaydet
+      let isHit = false;
+      if (to !== 'off') {
+        const targetVal = gs.board[to];
+        isHit = (gs.turn === 'white' ? targetVal === -1 : targetVal === 1);
+      }
+
       applyMove(gs, { from, to, diceIdx });
-      if (gs.currentTurnMoves) gs.currentTurnMoves.push({ from, to, diceIdx });
+      if (gs.currentTurnMoves) gs.currentTurnMoves.push({ from, to, diceIdx, hit: isHit });
 
       if (gs.phase === 'game_over') {
         handleGameOver(room);
@@ -501,6 +588,13 @@ function handleMessage(ws, room, msg) {
       }
 
       broadcast(room, { type: 'game_state', state: getPublicState(room) });
+
+      // Hamle bittiğinde bot ise bir sonraki hamle için tetikle (zarlar bitmemiş olabilir)
+      // Ancak bot zaten triggerBotTurn içindeki for döngüsüyle hamleleri yapıyor.
+      // Yine de oyuncunun hamlesi bittiğinde sıranın bota geçip geçmediğini kontrol etmek için:
+      if (gs.phase !== 'game_over' && gs.dice.length === gs.diceUsed.length) {
+         // Sıra bitecek, endTurn zaten triggerBotTurn çağıracak
+      }
       break;
     }
 
@@ -767,7 +861,7 @@ wss.on('connection', (ws) => {
       let room = rooms.get(roomId);
 
       if (!room) {
-        room = createRoom(roomId, settings || { matchLength: 7, matchTime: 5 });
+        room = createRoom(roomId, settings || { matchLength: 5, matchTime: 5 });
         rooms.set(roomId, room);
       }
 
@@ -780,9 +874,21 @@ wss.on('connection', (ws) => {
       room.players.push({
         ws,
         color: playerColor,
-        name: playerName || `Oyuncu ${room.players.length + 1}`
+        name: playerName || `Oyuncu ${room.players.length + 1}`,
+        isBot: false
       });
       currentRoom = room;
+
+      // Bot Modu Kontrolü (Hata Giderildi: Eğer isBotGame ise botu hemen ekle)
+      if (settings && settings.isBotGame && room.players.length === 1) {
+        const botColor = playerColor === 'white' ? 'black' : 'white';
+        room.players.push({
+          ws: { send: () => {}, readyState: 1 }, // Mock WS (1 = OPEN)
+          color: botColor,
+          name: '🤖 GNUBG Bot',
+          isBot: true
+        });
+      }
 
       ws.send(JSON.stringify({
         type: 'joined',
@@ -796,7 +902,10 @@ wss.on('connection', (ws) => {
           type: 'players_ready',
           players: room.players.map(p => ({ color: p.color, name: p.name }))
         });
-        setTimeout(() => startNextGame(room), 1000);
+        setTimeout(() => {
+          startNextGame(room);
+          triggerBotTurn(room);
+        }, 1000);
       } else {
         ws.send(JSON.stringify({ type: 'waiting_for_opponent' }));
       }

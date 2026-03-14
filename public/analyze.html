@@ -12,11 +12,11 @@
 
 :root {
   --bg:        #080b10;
-  --panel:     #0d1117;
-  --surface:   #111825;
-  --surface2:  #1a2235;
-  --border:    rgba(255,255,255,0.06);
-  --border2:   rgba(255,255,255,0.12);
+  --panel:     rgba(13, 17, 26, 0.45);
+  --surface:   rgba(20, 25, 35, 0.4);
+  --surface2:  rgba(30, 36, 48, 0.5);
+  --border:    rgba(255,255,255,0.08);
+  --border2:   rgba(255,255,255,0.15);
   --amber:     #f59e0b;
   --amber-dim: rgba(245,158,11,0.12);
   --amber-bd:  rgba(245,158,11,0.3);
@@ -26,8 +26,8 @@
   --red-dim:   rgba(239,68,68,0.1);
   --blue:      #60a5fa;
   --text:      #e2e8f0;
-  --muted:     #4b5c6b;
-  --muted2:    #64748b;
+  --muted:     #8f9db0;
+  --muted2:    #94a3b8;
 
   --white-checker: #e2e8f0;
   --red-checker:   #dc2626;
@@ -36,10 +36,18 @@
   --font-ui:   'Syne', sans-serif;
 }
 
+@keyframes ambientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 html, body { height: 100%; }
 
 body {
-  background: var(--bg);
+  background: linear-gradient(-45deg, #020617, #1e1b4b, #2e1065, #0f172a);
+  background-size: 300% 300%;
+  animation: ambientShift 20s ease infinite;
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 14px;
@@ -55,10 +63,14 @@ header {
   gap: 16px;
   padding: 0 24px;
   height: 52px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 17, 26, 0.25);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   flex-shrink: 0;
   z-index: 10;
+  position: relative;
 }
 
 .logo {
@@ -100,10 +112,14 @@ header {
   display: flex;
   align-items: stretch;
   gap: 1px;
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.05); /* Ayırıcı çizgiler için hafif şeffaf taban */
   border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   flex-shrink: 0;
   height: 110px;
+  position: relative;
+  z-index: 5;
 }
 
 .pr-card {
@@ -271,7 +287,9 @@ header {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--border);
-  background: var(--panel);
+  background: rgba(13, 17, 26, 0.45);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .moves-header {
@@ -420,7 +438,7 @@ header {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg);
+  background: transparent;
 }
 
 /* Board wrapper ─────────────────────────────────────────────────────────────── */
@@ -637,14 +655,7 @@ canvas#analyze-board {
     <!-- Sol: hamle listesi -->
     <div class="moves-panel">
       <div class="moves-header">
-        <span class="moves-header-title">Tur Geçmişi</span>
-        <div class="filter-pills">
-          <button class="fpill active" id="fp-all"     onclick="setFilter('all')">Tümü</button>
-          <button class="fpill"        id="fp-white"   onclick="setFilter('white')">⬜</button>
-          <button class="fpill"        id="fp-red"     onclick="setFilter('red')" style="color:#dc2626">🔴</button>
-          <button class="fpill fp-bad" id="fp-blunder" onclick="setFilter('blunder')">Hata</button>
-          <button class="fpill fp-good" id="fp-opt"   onclick="setFilter('optimal')">Opt</button>
-        </div>
+        <span class="moves-header-title" id="moves-header-title">Tur Geçmişi</span>
       </div>
       <div class="moves-list" id="moves-list">
         <div style="padding:24px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--muted)">
@@ -704,7 +715,7 @@ const wName      = players?.white || 'Beyaz';
 const bName      = players?.black || 'Kırmızı';
 
 let gnubgResults = null;
-let activeFilter = 'all';
+let activeFilter = myColor || 'white';
 let selectedIdx  = null;
 
 // ── Header ───────────────────────────────────────────────────────────────────
@@ -713,6 +724,14 @@ document.getElementById('header-title').textContent =
 
 document.getElementById('pr-white-name').textContent = wName.toUpperCase();
 document.getElementById('pr-red-name').textContent   = bName.toUpperCase();
+
+if (activeFilter === 'white') {
+  document.getElementById('pr-red').style.display = 'none';
+  document.getElementById('moves-header-title').textContent = `${wName} (Beyaz) Oyun Geçmişi`;
+} else {
+  document.getElementById('pr-white').style.display = 'none';
+  document.getElementById('moves-header-title').textContent = `${bName} (Kırmızı) Oyun Geçmişi`;
+}
 
 // Oyun meta
 const stats = computeStats(history);
@@ -728,7 +747,7 @@ document.getElementById('meta-bearoff').textContent = stats.bearOffTurns;
 // ── İlk board ────────────────────────────────────────────────────────────────
 // Oyunun başlangıç tahtasını çiz (ilk turun boardBefore)
 const firstBoard = history[0]?.boardBefore;
-if (firstBoard) drawBoard(firstBoard);
+if (firstBoard) drawBoard(firstBoard, null, history[0]?.color || 'white');
 else drawEmptyBoard();
 
 // ── Hamle listesini render et ─────────────────────────────────────────────────
@@ -757,7 +776,7 @@ function getPointCenter(pt) {
   return { x, isBottom };
 }
 
-function drawBoard(gs, highlightMoves) {
+function drawBoard(gs, highlightMoves, perspective = 'white') {
   const board   = gs.board   || gs;
   const bar     = gs.bar     || { white: 0, black: 0 };
   const barX    = ML + 6 * PW;
@@ -788,11 +807,12 @@ function drawBoard(gs, highlightMoves) {
     ctx.fill();
 
     // Numara
+    const labelNum = perspective === 'black' ? (25 - i) : i;
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.font = 'bold 9px Space Mono, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = isBottom ? 'bottom' : 'top';
-    ctx.fillText(i, x, isBottom ? BH - 3 : 3);
+    ctx.fillText(labelNum, x, isBottom ? BH - 3 : 3);
   }
 
   // Bar
@@ -892,18 +912,7 @@ function renderMoveList() {
   list.innerHTML = '';
 
   const filtered = history.map((t, i) => ({ t, i })).filter(({ t }) => {
-    if (activeFilter === 'white')   return t.color === 'white';
-    if (activeFilter === 'red')     return t.color === 'black';
-    if (activeFilter === 'blunder') {
-      const r = gnubgResults?.[gnubgResults.findIndex
-        ? gnubgResults.findIndex((_, ri) => history.indexOf(t) === ri) : -1];
-      return (r?.equityLoss || 0) > 0.05;
-    }
-    if (activeFilter === 'optimal') {
-      const r = gnubgResults?.[history.indexOf(t)];
-      return r?.isOptimal;
-    }
-    return true;
+    return activeFilter === 'white' ? t.color === 'white' : t.color === 'black';
   });
 
   filtered.forEach(({ t, i }) => {
@@ -962,7 +971,7 @@ function selectTurn(idx) {
   // Board güncelle - boardAfter göster (hamle oynandıktan sonraki durum)
   const boardState = t.boardAfter || t.boardBefore;
   if (boardState) {
-    drawBoard(boardState, t.moves?.filter(m => typeof m.to === 'number'));
+    drawBoard(boardState, t.moves?.filter(m => typeof m.to === 'number'), t.color);
   }
 
   // Detay paneli
@@ -1005,9 +1014,10 @@ function selectTurn(idx) {
       const isFirst = mi === 0;
       const isActual = gr.isOptimal && mi === 0;
       const diff = isFirst ? '' : `<span class="cand-diff">−${(gr.topMoves[0].equity - m.equity).toFixed(3)}</span>`;
+      const absMoveStr = m.moves ? m.moves.map(mv => fmtMove(mv, t.color)).join(' ') : m.moveStr;
       const div = document.createElement('div');
       div.className = `candidate${isFirst?' best':''}${isActual?' actual-match':''}`;
-      div.innerHTML = `<span class="cand-rank">${m.rank}.</span><span class="cand-move">${m.moveStr}</span><span class="cand-eq">${m.equity.toFixed(3)}</span>${diff}`;
+      div.innerHTML = `<span class="cand-rank">${m.rank}.</span><span class="cand-move">${absMoveStr}</span><span class="cand-eq">${m.equity.toFixed(3)}</span>${diff}`;
       cands.appendChild(div);
     });
   } else if (gr) {
@@ -1045,7 +1055,7 @@ function prLabel(v) {
 }
 
 function updatePRCards(results) {
-  const analyzed = results.filter(r => !r.skipped && !r.error);
+  const analyzed = results.filter(r => r && !r.skipped && !r.error);
   const wA = analyzed.filter(r => r.color === 'white');
   const bA = analyzed.filter(r => r.color === 'black');
 
@@ -1105,16 +1115,34 @@ async function startAnalysis() {
   progress.textContent   = `0 / ${history.length} tur`;
 
   try {
+    const turnHistory = history.map((t, originalIndex) => ({ ...t, originalIndex }));
+    const filteredTurns = turnHistory.filter(t => {
+      return activeFilter === 'white' ? t.color === 'white' : t.color === 'black';
+    });
+
+    if (filteredTurns.length === 0) {
+      alert("Analiz edilecek hamle bulunamadı.");
+      btn.innerHTML = `✅ TAMAMLANDI`;
+      return;
+    }
+
     const res  = await fetch('/api/gnubg/analyze-game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ turnHistory: history })
+      body: JSON.stringify({ turnHistory: filteredTurns })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    gnubgResults = data.results || [];
+    
+    if (!gnubgResults) {
+      gnubgResults = new Array(history.length).fill(null);
+    }
+    data.results.forEach((r, i) => {
+      const origIdx = filteredTurns[i].originalIndex;
+      gnubgResults[origIdx] = r;
+    });
 
-    progress.textContent = `${gnubgResults.filter(r=>!r.skipped).length} tur analiz edildi`;
+    progress.textContent = `${gnubgResults.filter(r => r && !r.skipped).length} tur analiz edildi`;
     btn.textContent = '✅ Tamamlandı';
     btn.style.cssText = 'background:var(--green-dim);border-color:rgba(34,197,94,0.4);color:var(--green)';
 
@@ -1138,20 +1166,21 @@ async function startAnalysis() {
 // YARDIMCILAR
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ─── Nokta numarasını oyuncuya göre formatla ───────────────────────────────
-// Beyaz: 1→24 yönünde (1 = kendi ev, 24 = karşı ev)
-// Kırmızı: 24→1 yönünde — tahtadaki kendi perspektifinden 25-pt ile çevir
+// ─── Nokta numarasını tahtalardaki oyuncu perspektifine (relative) göre formatla ──────
+// Görüntülenen tahta seçili oyuncunun perspektifine göre güncellenecektir.
+// Siyah (kırmızı) oyuncunun 1 noktası absolute tahtada 24'tür. Bu nedenle 25'ten çıkarılır.
 function formatPt(pt, color) {
   if (pt === 'bar') return 'bar';
   if (pt === 'off') return 'off';
-  if (color === 'black') return (25 - pt).toString();
+  if (color === 'black') return (25 - parseInt(pt)).toString();
   return pt.toString();
 }
 
 function fmtMove(m, color) {
   const from = formatPt(m.from, color);
   const to   = formatPt(m.to,   color);
-  return `${from}/${to}`;
+  const hit  = m.hit ? '*' : '';
+  return `${from}/${to}${hit}`;
 }
 
 function computeStats(hist) {
