@@ -253,6 +253,7 @@ function handleServerMessage(msg) {
                 msg.winner === myColor ? 'MAÇI KAZANDINIZ!' : 'Maçı Kaybettiniz',
                 `Final Skor: Beyaz ${msg.score.white} – Kırmızı ${msg.score.black}`
             );
+            document.getElementById('overlay').dataset.matchOver = '1';
             stopTimer();
             break;
 
@@ -995,11 +996,27 @@ function showOverlay(emoji, title, msg) {
     document.getElementById('overlay-emoji').textContent = emoji;
     document.getElementById('overlay-title').textContent = title;
     document.getElementById('overlay-msg').textContent = msg;
-    document.getElementById('overlay').classList.remove('hidden');
+    const ov = document.getElementById('overlay');
+    ov.classList.remove('hidden');
+    ov.style.zIndex = '9999';
+    ov.style.pointerEvents = 'auto';
+    // Kapat butonunu garantile
+    const closeBtn = document.getElementById('overlay-close');
+    if (closeBtn) {
+        closeBtn.style.pointerEvents = 'auto';
+        closeBtn.style.zIndex = '10000';
+        closeBtn.style.position = 'relative';
+    }
 }
 
 function hideOverlay() {
-    document.getElementById('overlay').classList.add('hidden');
+    const ov = document.getElementById('overlay');
+    ov.classList.add('hidden');
+    // match_over sonrası sayfayı yenile (lobi'ye dön)
+    if (ov.dataset.matchOver === '1') {
+        ov.dataset.matchOver = '';
+        setTimeout(() => location.reload(), 400);
+    }
 }
 
 // ─── UTILS ────────────────────────────────────────────────────
