@@ -858,8 +858,11 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'join') {
       const { roomId, playerName, settings } = msg;
+      const isBotGame = !!(msg.isBotGame || (settings && settings.isBotGame));
+      
+      console.log(`[JOIN] Room: ${roomId}, Player: ${playerName}, Bot: ${isBotGame}`);
+      
       let room = rooms.get(roomId);
-
       if (!room) {
         room = createRoom(roomId, settings || { matchLength: 5, matchTime: 5 });
         rooms.set(roomId, room);
@@ -879,11 +882,12 @@ wss.on('connection', (ws) => {
       });
       currentRoom = room;
 
-      // Bot Modu Kontrolü (Hata Giderildi: Eğer isBotGame ise botu hemen ekle)
-      if (settings && settings.isBotGame && room.players.length === 1) {
+      // Bot Modu Kontrolü
+      if (isBotGame && room.players.length === 1) {
         const botColor = playerColor === 'white' ? 'black' : 'white';
+        console.log(`[JOIN] Bot ekleniyor... Color: ${botColor}`);
         room.players.push({
-          ws: { send: () => {}, readyState: 1 }, // Mock WS (1 = OPEN)
+          ws: { send: () => {}, readyState: 1 }, 
           color: botColor,
           name: '🤖 GNUBG Bot',
           isBot: true
@@ -894,8 +898,11 @@ wss.on('connection', (ws) => {
         type: 'joined',
         color: playerColor,
         roomId,
-        settings: room.settings
+        isBotGame: isBotGame,
+        settings: room.settings || { matchLength: 5, matchTime: 5 }
       }));
+
+      console.log(`[ROOM] ${roomId} current players: ${room.players.length}`);
 
       if (room.players.length === 2) {
         broadcast(room, {

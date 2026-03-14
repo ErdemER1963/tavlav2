@@ -114,14 +114,16 @@ function handleServerMessage(msg) {
     switch (msg.type) {
         case 'joined':
             myColor = msg.color;
+            console.log("[WS] Katılma başarılı:", msg);
             document.getElementById('room-display').textContent = `Oda: ${msg.roomId}`;
             document.getElementById('match-length-display').textContent = `${msg.settings.matchLength} puan maç`;
-            whiteTime = msg.settings.matchTime * 60;
-            blackTime = msg.settings.matchTime * 60;
+            whiteTime = (msg.settings.matchTime || 5) * 60;
+            blackTime = (msg.settings.matchTime || 5) * 60;
             showLobbyStatus(`✓ Katıldınız (${myColor === 'white' ? '⬜ Beyaz' : '🔴 Kırmızı'}). Rakip bekleniyor...`);
             break;
 
         case 'waiting_for_opponent':
+            console.log("[WS] Rakip bekleniyor...");
             showLobbyStatus('Rakip bekleniyor...');
             break;
 
@@ -130,6 +132,7 @@ function handleServerMessage(msg) {
             break;
 
         case 'players_ready':
+            console.log("[WS] Oyuncular hazır, oyun başlıyor!", msg.players);
             showGameScreen(msg.players);
             break;
 
@@ -405,8 +408,12 @@ function setupGameEvents() {
 // ─── CANVAS KURULUMU ─────────────────────────────────────────
 function setupCanvas() {
     canvas = document.getElementById('board-canvas');
+    if (!canvas) {
+        console.error("[CANVAS] board-canvas bulunamadı!");
+        return;
+    }
     ctx = canvas.getContext('2d');
-    // Dahili çözünürlük sabit (1180×700); CSS aspect-ratio ile görsel ölçekleme CSS tarafında
+    console.log("[CANVAS] Kurulum tamamlandı:", { ctx: !!ctx });
     canvas.width = BOARD_W;
     canvas.height = BOARD_H;
 }
@@ -418,40 +425,48 @@ window.addEventListener('resize', () => {
 
 // ─── TAHTA ÇİZİMİ ────────────────────────────────────────────
 function renderBoard() {
-    if (!ctx || !gameState) return;
+    if (!ctx) {
+        console.warn("[RENDER] CTX bulunamadı, yeniden deneniyor...");
+        setupCanvas();
+    }
+    if (!ctx || !gameState) {
+        console.log("[RENDER] Eksik bileşen:", { ctx: !!ctx, gameState: !!gameState });
+        return;
+    }
     const gs = gameState;
+    console.log("[RENDER] Başlıyor. Board length:", gs.board ? gs.board.length : 'N/A');
 
-    ctx.clearRect(0, 0, BOARD_W, BOARD_H);
+    try {
+        ctx.clearRect(0, 0, BOARD_W, BOARD_H);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+        ctx.fillRect(0, 0, BOARD_W, BOARD_H);
 
-    // Glassmorphism için arka planı temiz bırakıyoruz (CSS'teki board-wrapper blur'u gözüksün)
-    // Eğer hafif bir renk istenirse rgba kullanılabilir:
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-    ctx.fillRect(0, 0, BOARD_W, BOARD_H);
+        const barX = MARGIN_LEFT + (6 * POINT_W);
 
-    // Orta çizgi (bar alanı)
-    const barX = MARGIN_LEFT + (6 * POINT_W);
+        // Bir hata çizimi durdurmasın diye try-catch
+        try {
+            drawPoints(barX);
+        } catch(e) { console.error("[RENDER] drawPoints hatası:", e); }
 
-    // Noktaları çiz
-    drawPoints(barX);
+        try {
+            drawCheckers(gs, barX);
+        } catch(e) { console.error("[RENDER] drawCheckers hatası:", e); }
 
-    // Pulları çiz (bar dahil)
-    drawCheckers(gs, barX);
+        if (selectedFrom !== null) {
+            try { drawLegalHighlights(gs, barX); } catch(e) {}
+        }
 
-    // Seçili pul vurgusu
-    if (selectedFrom !== null) {
-        drawLegalHighlights(gs, barX);
+        if (dragState && dragState.currentX !== undefined) {
+            const color = myColor;
+            drawChecker(dragState.currentX, dragState.currentY, color, true);
+        }
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, BOARD_W, BOARD_H);
+    } catch(err) {
+        console.error("[RENDER] Genel render hatası:", err);
     }
-
-    // Drag pul çiz
-    if (dragState && dragState.currentX !== undefined) {
-        const color = myColor;
-        drawChecker(dragState.currentX, dragState.currentY, color, true);
-    }
-
-    // Süsleme çizgisi (Glassmorphism kenarlığı gibi)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0, 0, BOARD_W, BOARD_H);
 }
 
 function drawPoints(barX) {
