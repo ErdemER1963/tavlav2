@@ -70,8 +70,21 @@ function joinGame() {
         return;
     }
     const roomId = document.getElementById('room-id').value.trim() || 'TAVLA';
-    const matchLength = parseInt(document.querySelector('#match-length-group .chip.active').dataset.value);
-    const matchTime = parseInt(document.querySelector('#match-time-group .chip.active').dataset.value);
+    // Maç uzunluğu: önce slider, yoksa chip (eski UI uyumu)
+    const sliderEl = document.getElementById('match-length-hidden') || document.getElementById('match-length-slider');
+    const chipLength = document.querySelector('#match-length-group .chip.active');
+    const matchLength = sliderEl
+        ? parseInt(sliderEl.value)
+        : chipLength ? parseInt(chipLength.dataset.value) : 5;
+
+    // Maç süresi: önce ikon kart, yoksa chip (eski UI uyumu)
+    const activeTimeCard = document.querySelector('.time-card.active');
+    const timeHidden = document.getElementById('match-time-hidden');
+    const chipTime = document.querySelector('#match-time-group .chip.active');
+    const matchTime = activeTimeCard
+        ? parseInt(activeTimeCard.dataset.value)
+        : timeHidden ? parseInt(timeHidden.value)
+        : chipTime ? parseInt(chipTime.dataset.value) : 5;
     matchSettings = { matchLength, matchTime };
 
     showLobbyStatus('Sunucuya bağlanılıyor...');
