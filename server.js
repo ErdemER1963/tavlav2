@@ -858,8 +858,10 @@ wss.on('connection', (ws) => {
 
     if (msg.type === 'join') {
       const { roomId, playerName, settings } = msg;
-      const isBotGame = !!(msg.isBotGame || (settings && settings.isBotGame));
+      // Bot tespiti için tüm kaynakları kontrol et
+      const isBotGame = !!(msg.isBotGame || (settings && settings.isBotGame) || roomId.startsWith('BOT_'));
       
+      console.log(`[JOIN] Raw MSG:`, JSON.stringify(msg));
       console.log(`[JOIN] Room: ${roomId}, Player: ${playerName}, Bot: ${isBotGame}`);
       
       let room = rooms.get(roomId);

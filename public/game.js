@@ -26,7 +26,7 @@ const CHECKER_R = 25;
 
 // ─── LOBİ UI ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    setupLobby();
+    // setupLobby v2 kapsamında index.html içine taşındı
     setupCanvas();
 });
 
@@ -80,10 +80,12 @@ function connectWS(roomId) {
     ws = new WebSocket(`${protocol}//${location.host}`);
 
     ws.onopen = () => {
+        console.log("[WS] Bağlantı açıldı, odaya katılım isteniyor:", { roomId, myName, matchSettings });
         ws.send(JSON.stringify({
             type: 'join',
             roomId,
             playerName: myName,
+            isBotGame: !!matchSettings.isBotGame, // Üst seviyede de belirtelim
             settings: matchSettings
         }));
     };
