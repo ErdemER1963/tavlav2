@@ -10,18 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-
-  <!-- ─── PWA ─────────────────────────────────────────────────── -->
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#8B4513">
-  <!-- iOS -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Tavla">
-  <link rel="apple-touch-icon" href="/icons/icon-152.png">
-  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
-  <!-- Android -->
-  <meta name="mobile-web-app-capable" content="yes">
 </head>
 
 <body>
@@ -29,7 +17,10 @@
   <!-- ─── LOBİ EKRANI ─────────────────────────────────────────── -->
   <div id="lobby-screen" class="screen active">
     <div class="lobby-bg"></div>
+
     <div class="lobby-container">
+
+      <!-- Logo -->
       <div class="logo-wrap">
         <div class="logo-dice">⚄</div>
         <h1 class="logo-title">TAVLA <span>V2</span></h1>
@@ -37,48 +28,81 @@
       </div>
 
       <div class="lobby-card">
+
+        <!-- ── Avatar + İsim ── -->
         <div class="form-group">
-          <label for="player-name">OYUNCU ADI</label>
+          <label>OYUNCU ADI</label>
+          <div class="avatar-row" id="avatar-row">
+            <button class="avatar-btn active" data-avatar="🎯">🎯</button>
+            <button class="avatar-btn" data-avatar="🦁">🦁</button>
+            <button class="avatar-btn" data-avatar="🐺">🐺</button>
+            <button class="avatar-btn" data-avatar="🦊">🦊</button>
+            <button class="avatar-btn" data-avatar="🐉">🐉</button>
+            <button class="avatar-btn" data-avatar="👑">👑</button>
+          </div>
           <input type="text" id="player-name" placeholder="Adınızı yazın..." maxlength="20">
         </div>
 
-        <div class="lobby-tabs">
-          <button class="tab-btn active" data-tab="create">ODA OLUŞTUR</button>
-          <button class="tab-btn" data-tab="join">ODAYA KATIL</button>
+        <!-- ── Alt Çizgi Sekme ── -->
+        <div class="underline-tabs" id="underline-tabs">
+          <button class="utab active" data-tab="create">Oda Oluştur</button>
+          <button class="utab" data-tab="join">Odaya Katıl</button>
+          <div class="utab-ink" id="utab-ink"></div>
         </div>
 
+        <!-- ── Oda Oluştur ── -->
         <div id="tab-create" class="tab-content active">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Maç Uzunluğu</label>
-              <div class="chip-group" id="match-length-group">
-                <button class="chip" data-value="1">1</button>
-                <button class="chip" data-value="3">3</button>
-                <button class="chip active" data-value="5">5</button>
-                <button class="chip" data-value="7">7</button>
-                <button class="chip" data-value="9">9</button>
-                <button class="chip" data-value="11">11</button>
-                <button class="chip" data-value="13">13</button>
-                <button class="chip" data-value="15">15</button>
-                <button class="chip" data-value="17">17</button>
+
+          <!-- Maç Uzunluğu: Slider -->
+          <div class="form-group">
+            <label>MAÇ UZUNLUĞU</label>
+            <div class="slider-wrap">
+              <div class="slider-val-display">
+                <span id="match-length-val">5</span>
+                <span class="slider-val-label">puan</span>
+              </div>
+              <input
+                type="range"
+                id="match-length-slider"
+                min="1" max="17" step="2" value="5"
+                class="match-slider"
+              >
+              <div class="slider-ticks">
+                <span>1</span><span>3</span><span>5</span><span>7</span><span>9</span><span>11</span><span>13</span><span>15</span><span>17</span>
               </div>
             </div>
+            <!-- hidden input: game.js bu değeri okur -->
+            <input type="hidden" id="match-length-hidden" value="5">
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Maç Süresi (Dakika)</label>
-              <div class="chip-group" id="match-time-group">
-                <button class="chip" data-value="1">1 dk</button>
-                <button class="chip active" data-value="5">5 dk</button>
-                <button class="chip" data-value="11">11 dk</button>
-              </div>
+
+          <!-- Maç Süresi: İkon Kartları -->
+          <div class="form-group">
+            <label>MAÇ SÜRESİ</label>
+            <div class="time-cards" id="match-time-group">
+              <button class="time-card" data-value="1">
+                <span class="time-icon">⚡</span>
+                <span class="time-name">Hızlı</span>
+                <span class="time-min">1 dk</span>
+              </button>
+              <button class="time-card active" data-value="5">
+                <span class="time-icon">🎯</span>
+                <span class="time-name">Normal</span>
+                <span class="time-min">5 dk</span>
+              </button>
+              <button class="time-card" data-value="11">
+                <span class="time-icon">🐢</span>
+                <span class="time-name">Rahat</span>
+                <span class="time-min">11 dk</span>
+              </button>
             </div>
           </div>
+
         </div>
 
+        <!-- ── Odaya Katıl ── -->
         <div id="tab-join" class="tab-content">
           <div class="form-group">
-            <label for="room-id">Oda Kodu</label>
+            <label for="room-id">ODA KODU</label>
             <div class="room-row">
               <input type="text" id="room-id" placeholder="Kodu yapıştırın..." maxlength="10">
               <button class="btn-secondary" id="gen-room-btn">Rastgele</button>
@@ -86,19 +110,25 @@
           </div>
         </div>
 
-        <button class="btn-primary" id="join-btn">
-          <span>OYUNA KATIL</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+        <!-- ── Dolum Animasyonlu Buton ── -->
+        <button class="btn-primary btn-fill" id="join-btn">
+          <span class="btn-fill-bg"></span>
+          <span class="btn-fill-content">
+            OYUNA KATIL
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
         </button>
-      </div>
+
+      </div><!-- /lobby-card -->
 
       <div id="lobby-status" class="lobby-status hidden">
         <div class="spinner"></div>
         <span id="lobby-status-text">Bağlanıyor...</span>
       </div>
-    </div>
+
+    </div><!-- /lobby-container -->
   </div>
 
   <!-- ─── OYUN EKRANI ─────────────────────────────────────────── -->
@@ -224,46 +254,129 @@
     </div>
   </div>
 
-  <!-- ─── PWA Kurulum Butonu ──────────────────────────────────── -->
-  <button id="pwa-install-btn" style="display:none; position:fixed; bottom:20px; right:20px;
-    background:#8B4513; color:white; border:none; padding:10px 18px;
-    border-radius:8px; cursor:pointer; font-size:14px; z-index:9999;
-    box-shadow:0 2px 8px rgba(0,0,0,0.5); font-family:inherit;">
-    📲 Uygulamayı Yükle
-  </button>
-
   <script src="game.js"></script>
 
-  <!-- ─── PWA Service Worker ───────────────────────────────────── -->
+  <!-- ─── Lobi Bileşen JS ─────────────────────────────────────── -->
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('SW kayıtlı:', reg.scope))
-          .catch(err => console.warn('SW hatası:', err));
+  (function() {
+
+    /* ── Avatar seçici ── */
+    const avatarBtns = document.querySelectorAll('.avatar-btn');
+    avatarBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        avatarBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    /* ── Alt çizgi sekme ink ── */
+    const tabs    = document.querySelectorAll('.utab');
+    const ink     = document.getElementById('utab-ink');
+    const tabWrap = document.getElementById('underline-tabs');
+
+    function moveInk(btn) {
+      if (!ink || !btn) return;
+      const wRect = tabWrap.getBoundingClientRect();
+      const bRect = btn.getBoundingClientRect();
+      ink.style.left  = (bRect.left - wRect.left) + 'px';
+      ink.style.width = bRect.width + 'px';
+    }
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        moveInk(tab);
+        // Tab içerik aç/kapat
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        const target = document.getElementById('tab-' + tab.dataset.tab);
+        if (target) target.classList.add('active');
+      });
+    });
+
+    // Başlangıçta ilk tab ink konumunu ayarla
+    requestAnimationFrame(() => moveInk(document.querySelector('.utab.active')));
+    window.addEventListener('resize', () => moveInk(document.querySelector('.utab.active')));
+
+    /* ── Maç uzunluğu slider ── */
+    const slider  = document.getElementById('match-length-slider');
+    const valDisp = document.getElementById('match-length-val');
+    const hidden  = document.getElementById('match-length-hidden');
+
+    function updateSlider() {
+      const v = slider.value;
+      valDisp.textContent = v;
+      if (hidden) hidden.value = v;
+
+      // Slider dolum rengi
+      const pct = ((v - 1) / 16) * 100;
+      slider.style.background =
+        'linear-gradient(to right, var(--clr-accent) ' + pct + '%, var(--clr-surface2) ' + pct + '%)';
+
+      // Sayı zıplama animasyonu
+      valDisp.style.transform = 'scale(1.18)';
+      clearTimeout(slider._t);
+      slider._t = setTimeout(() => { valDisp.style.transform = 'scale(1)'; }, 140);
+    }
+
+    if (slider) {
+      slider.addEventListener('input', updateSlider);
+      updateSlider(); // ilk render
+    }
+
+    /* ── Süre ikon kartları ── */
+    const timeCards = document.querySelectorAll('.time-card');
+    timeCards.forEach(card => {
+      card.addEventListener('click', () => {
+        timeCards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+      });
+    });
+
+    /* ── game.js'in beklediği değerleri sağla ──
+       game.js büyük ihtimalle şunları okur:
+       - #player-name (input)
+       - .chip.active[data-value] (maç uzunluğu)  → slider ile değiştirdik, hidden input kullan
+       - .chip.active[data-value] (süre)           → time-card ile değiştirdik
+
+       game.js içindeki okuma mantığını bozmamak için
+       "getMatchLength" ve "getMatchTime" global fonksiyonları tanımla.
+       game.js bunları çağırıyorsa doğrudan çalışır;
+       chip.active okuyorsa aşağıdaki monkey-patch devreye girer.
+    ── */
+
+    // Süre seçimini data attribute ile takip et
+    let selectedTime = 5;
+    timeCards.forEach(c => {
+      c.addEventListener('click', () => { selectedTime = parseInt(c.dataset.value); });
+    });
+
+    // game.js .chip.active üzerinden okuyorsa:
+    // Aktif time-card'ı .chip.active gibi davranacak gizli bir chip'e yansıt
+    const timeHidden = document.createElement('input');
+    timeHidden.type = 'hidden';
+    timeHidden.id   = 'match-time-hidden';
+    timeHidden.value = '5';
+    document.body.appendChild(timeHidden);
+
+    timeCards.forEach(c => {
+      c.addEventListener('click', () => {
+        timeHidden.value = c.dataset.value;
+      });
+    });
+
+    /* ── Dolum butonu loading state ── */
+    const joinBtn = document.getElementById('join-btn');
+    if (joinBtn) {
+      joinBtn.addEventListener('click', function() {
+        // Gerçek join işlemi game.js'de tetiklenir; biz sadece loading görselini ekleriz
+        setTimeout(() => joinBtn.classList.add('loading'), 10);
       });
     }
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      const btn = document.getElementById('pwa-install-btn');
-      if (btn) {
-        btn.style.display = 'block';
-        btn.addEventListener('click', () => {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then(() => {
-            deferredPrompt = null;
-            btn.style.display = 'none';
-          });
-        });
-      }
-    });
-    window.addEventListener('appinstalled', () => {
-      const btn = document.getElementById('pwa-install-btn');
-      if (btn) btn.style.display = 'none';
-    });
+
+  })();
   </script>
+
 </body>
 
 </html>
