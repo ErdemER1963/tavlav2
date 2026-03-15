@@ -1,60 +1,50 @@
 {
-  "name": "Tavla V2",
-  "short_name": "Tavla",
-  "description": "Online Çok Oyunculu Tavla",
+  "name": "Tavla V2 – Online Çok Oyunculu",
+  "short_name": "Tavla V2",
+  "description": "Gerçek zamanlı online tavla – Cube aksiyonu, GNUBG bot ve analiz",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "landscape",
-  "background_color": "#1a0a00",
-  "theme_color": "#8B4513",
+  "background_color": "#080b10",
+  "theme_color": "#f59e0b",
+  "lang": "tr",
+  "categories": ["games", "entertainment"],
   "icons": [
-    {
-      "src": "/icons/icon-72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-152.png",
-      "sizes": "152x152",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
+    { "src": "/icons/icon-72.png",  "sizes": "72x72",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-96.png",  "sizes": "96x96",   "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-128.png", "sizes": "128x128", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-144.png", "sizes": "144x144", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-384.png", "sizes": "384x384", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "screenshots": [
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "form_factor": "wide",
+      "label": "Tavla V2 Oyun Tahtası"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Bot ile Oyna",
+      "short_name": "Bot",
+      "description": "GNUBG botuna karşı hemen oyna",
+      "url": "/?mode=bot",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Oda Oluştur",
+      "short_name": "Yeni Oda",
+      "description": "Arkadaşınla oynamak için oda aç",
+      "url": "/?mode=create",
+      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

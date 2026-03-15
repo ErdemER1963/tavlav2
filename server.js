@@ -20,6 +20,14 @@ app.use((req, res, next) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// PWA: manifest ve ikonları doğrudan kök dizinden sun
+app.use('/icons', express.static(path.join(__dirname, 'icons')));
+app.get('/manifest.json', (req, res) => res.sendFile(path.join(__dirname, 'manifest.json')));
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');  // SW her zaman taze alınsın
+  res.sendFile(path.join(__dirname, 'sw.js'));
+});
+
 // ─── GNU Backgammon Entegrasyonu ──────────────────────────────────────────────
 let gnubg = null;
 try {

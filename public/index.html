@@ -3,9 +3,40 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Tavla V2 – Online Çok Oyunculu</title>
   <meta name="description" content="Cube aksiyonlu online tavla oyunu – iki oyuncu gerçek zamanlı oynayabilir.">
+
+  <!-- ── PWA Core ─────────────────────────────────────────── -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#f59e0b">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- ── iOS (Safari) PWA ─────────────────────────────────── -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tavla V2">
+  <link rel="apple-touch-icon" href="/icons/icon-152.png">
+  <link rel="apple-touch-icon" sizes="72x72"   href="/icons/icon-72.png">
+  <link rel="apple-touch-icon" sizes="96x96"   href="/icons/icon-96.png">
+  <link rel="apple-touch-icon" sizes="128x128" href="/icons/icon-128.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png">
+
+  <!-- ── Favicon ───────────────────────────────────────────── -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32"   href="/icons/icon-96.png">
+  <link rel="shortcut icon" href="/icons/icon-192.png">
+
+  <!-- ── Open Graph ───────────────────────────────────────── -->
+  <meta property="og:title"       content="Tavla V2 – Online Çok Oyunculu">
+  <meta property="og:description" content="Cube aksiyonlu online tavla – GNUBG bot ve analiz">
+  <meta property="og:type"        content="website">
+  <meta property="og:image"       content="/icons/icon-512.png">
+
+  <!-- ── Fonts & CSS ─────────────────────────────────────── -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
@@ -138,8 +169,7 @@
               <div class="bot-settings-chips">
                 <button class="chip-v2 active" data-value="1">1</button>
                 <button class="chip-v2" data-value="3">3</button>
-                <button class="chip-v2" data-value="7">7</button>
-                <button class="chip-v2" data-value="9">9</button>
+                <button class="chip-v2" data-value="5">5</button>
               </div>
             </div>
           </div>
@@ -413,7 +443,6 @@
         if (action === 'bot') {
             roomId = 'BOT_' + Math.random().toString(36).substring(2, 6).toUpperCase();
             settings.matchLength = botMatchLength;
-            settings.matchTime = 9999; // Sınırsız
         }
 
         // game.js içindeki joinGame tetikle (overrides ile)
@@ -430,6 +459,105 @@
       });
     });
 
+  })();
+  </script>
+  <!-- ── Service Worker Kaydı & PWA Kurulum ──────────────── -->
+  <script>
+  (function() {
+    // Service Worker kaydı
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => {
+            console.log('[PWA] Service Worker kayıtlı:', reg.scope);
+            // Yeni sürüm varsa kullanıcıya bildir
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  showUpdateBanner();
+                }
+              });
+            });
+          })
+          .catch(err => console.warn('[PWA] SW kayıt hatası:', err));
+      });
+    }
+
+    // "Ana Ekrana Ekle" prompt'u
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // Lobi yüklenince butonu göster
+      setTimeout(showInstallBtn, 2000);
+    });
+
+    function showInstallBtn() {
+      if (!deferredPrompt) return;
+      // Zaten yüklüyse gösterme
+      if (window.matchMedia('(display-mode: standalone)').matches) return;
+      const btn = document.createElement('button');
+      btn.id = 'pwa-install-btn';
+      btn.innerHTML = '📲 Uygulamayı Kur';
+      btn.style.cssText = [
+        'position:fixed;bottom:20px;right:20px;z-index:9999',
+        'padding:10px 18px;border-radius:12px;border:1px solid rgba(245,158,11,.5)',
+        'background:rgba(245,158,11,.15);color:#f59e0b;font-size:13px',
+        'font-weight:600;cursor:pointer;backdrop-filter:blur(12px)',
+        'box-shadow:0 4px 20px rgba(0,0,0,.4);transition:opacity .3s'
+      ].join(';');
+      btn.addEventListener('click', async () => {
+        btn.remove();
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('[PWA] Kurulum:', outcome);
+        deferredPrompt = null;
+      });
+      document.body.appendChild(btn);
+      // 15 saniye sonra kendiliğinden kaybol
+      setTimeout(() => btn.style.opacity = '0', 15000);
+      setTimeout(() => btn.remove(), 15500);
+    }
+
+    // Güncelleme banner'ı
+    function showUpdateBanner() {
+      const banner = document.createElement('div');
+      banner.style.cssText = [
+        'position:fixed;top:0;left:0;right:0;z-index:10000',
+        'background:rgba(245,158,11,.95);color:#000;text-align:center',
+        'padding:10px 16px;font-size:13px;font-weight:600',
+        'display:flex;align-items:center;justify-content:center;gap:12px'
+      ].join(';');
+      banner.innerHTML = '🔄 Yeni sürüm mevcut! <button onclick="location.reload()" style="padding:4px 12px;border-radius:6px;border:none;background:#000;color:#f59e0b;cursor:pointer;font-weight:700">Güncelle</button>';
+      document.body.prepend(banner);
+    }
+
+    // iOS Safari "Ana Ekrana Ekle" talimatı
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone;
+    if (isIOS && !isStandalone && !localStorage.getItem('ios-install-shown')) {
+      setTimeout(() => {
+        const tip = document.createElement('div');
+        tip.style.cssText = [
+          'position:fixed;bottom:20px;left:50%;transform:translateX(-50%)',
+          'z-index:9999;background:rgba(13,17,26,.95);color:#e2e8f0',
+          'border:1px solid rgba(245,158,11,.4);border-radius:16px',
+          'padding:14px 20px;font-size:13px;text-align:center',
+          'max-width:300px;backdrop-filter:blur(20px)',
+          'box-shadow:0 8px 32px rgba(0,0,0,.6);line-height:1.5'
+        ].join(';');
+        tip.innerHTML = '📲 <strong style="color:#f59e0b">Ana Ekrana Ekle</strong><br>Safari\'de <b>Paylaş</b> → <b>Ana Ekrana Ekle</b> ile uygulama olarak kullan';
+        const closeBtn = document.createElement('button');
+        closeBtn.innerHTML = '✕';
+        closeBtn.style.cssText = 'position:absolute;top:8px;right:10px;background:none;border:none;color:#94a3b8;font-size:16px;cursor:pointer;line-height:1';
+        closeBtn.onclick = () => { tip.remove(); localStorage.setItem('ios-install-shown','1'); };
+        tip.appendChild(closeBtn);
+        document.body.appendChild(tip);
+        setTimeout(() => tip.remove(), 12000);
+        localStorage.setItem('ios-install-shown', '1');
+      }, 3000);
+    }
   })();
   </script>
 
