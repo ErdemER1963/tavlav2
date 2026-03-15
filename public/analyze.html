@@ -656,6 +656,12 @@ canvas#analyze-board {
     <div class="moves-panel">
       <div class="moves-header">
         <span class="moves-header-title" id="moves-header-title">Tur Geçmişi</span>
+        <div class="filter-pills">
+          <button class="fpill active"       data-filter="white"   onclick="setFilter('white')">⬜ Beyaz</button>
+          <button class="fpill"              data-filter="black"   onclick="setFilter('black')">🔴 Kırmızı</button>
+          <button class="fpill fp-bad"       data-filter="blunder" onclick="setFilter('blunder')">Hatalar</button>
+          <button class="fpill fp-good"      data-filter="optimal" onclick="setFilter('optimal')">Optimal</button>
+        </div>
       </div>
       <div class="moves-list" id="moves-list">
         <div style="padding:24px;text-align:center;font-family:var(--font-mono);font-size:11px;color:var(--muted)">
@@ -725,6 +731,29 @@ document.getElementById('header-title').textContent =
 document.getElementById('pr-white-name').textContent = wName.toUpperCase();
 document.getElementById('pr-red-name').textContent   = bName.toUpperCase();
 
+function syncFilterUI() {
+  // PR kartlarını göster/gizle ve başlık güncelle
+  const isWhiteView = activeFilter === 'white' || activeFilter === 'optimal' || activeFilter === 'blunder';
+  // Kalite filtresi aktifken her iki rengi de göster
+  if (activeFilter === 'blunder' || activeFilter === 'optimal') {
+    document.getElementById('pr-white').style.display = '';
+    document.getElementById('pr-red').style.display   = '';
+    document.getElementById('moves-header-title').textContent = 'Tüm Turlar (Kalite Filtresi)';
+  } else if (activeFilter === 'white') {
+    document.getElementById('pr-red').style.display   = 'none';
+    document.getElementById('pr-white').style.display = '';
+    document.getElementById('moves-header-title').textContent = `${wName} (Beyaz) Oyun Geçmişi`;
+  } else {
+    document.getElementById('pr-white').style.display = 'none';
+    document.getElementById('pr-red').style.display   = '';
+    document.getElementById('moves-header-title').textContent = `${bName} (Kırmızı) Oyun Geçmişi`;
+  }
+  // Aktif pill'i vurgula
+  document.querySelectorAll('.fpill').forEach(b => b.classList.remove('active'));
+  const pill = document.querySelector(`.fpill[data-filter="${activeFilter}"]`);
+  if (pill) pill.classList.add('active');
+}
+
 if (activeFilter === 'white') {
   document.getElementById('pr-red').style.display = 'none';
   document.getElementById('moves-header-title').textContent = `${wName} (Beyaz) Oyun Geçmişi`;
@@ -750,7 +779,8 @@ const firstBoard = history[0]?.boardBefore;
 if (firstBoard) drawBoard(firstBoard, null, history[0]?.color || 'white');
 else drawEmptyBoard();
 
-// ── Hamle listesini render et ─────────────────────────────────────────────────
+// ── Filtre UI & Hamle listesini render et ──────────────────────────────────────
+syncFilterUI();
 renderMoveList();
 
 // ── gnubg durumu ─────────────────────────────────────────────────────────────
@@ -911,7 +941,18 @@ function renderMoveList() {
   const list = document.getElementById('moves-list');
   list.innerHTML = '';
 
-  const filtered = history.map((t, i) => ({ t, i })).filter(({ t }) => {
+  const isQualityFilter = activeFilter === 'blunder' || activeFilter === 'optimal';
+
+  const filtered = history.map((t, i) => ({ t, i })).filter(({ t, i }) => {
+    if (isQualityFilter) {
+      // Kalite filtresi: tüm renkler, analiz sonucuna göre süz
+      const gr = gnubgResults?.[i];
+      if (!gr || gr.skipped || gr.error) return false;
+      const loss = gr.equityLoss ?? null;
+      if (activeFilter === 'blunder') return loss !== null && loss > 0.05;
+      if (activeFilter === 'optimal') return gr.isOptimal || (loss !== null && loss <= 0.05);
+    }
+    // Renk filtresi
     return activeFilter === 'white' ? t.color === 'white' : t.color === 'black';
   });
 
@@ -1112,17 +1153,22 @@ async function startAnalysis() {
   btn.disabled   = true;
   btn.textContent = '⏳ Analiz ediliyor...';
   progress.style.display = 'block';
-  progress.textContent   = `0 / ${history.length} tur`;
+
+  // Kalite filtresi aktifse tüm turları analiz et; yoksa sadece aktif rengi
+  const isQualityFilter = activeFilter === 'blunder' || activeFilter === 'optimal';
+  const colorToAnalyze  = isQualityFilter ? null : activeFilter; // null = her iki renk
 
   try {
     const turnHistory = history.map((t, originalIndex) => ({ ...t, originalIndex }));
-    const filteredTurns = turnHistory.filter(t => {
-      return activeFilter === 'white' ? t.color === 'white' : t.color === 'black';
-    });
+    const filteredTurns = colorToAnalyze
+      ? turnHistory.filter(t => t.color === colorToAnalyze)
+      : turnHistory;
+
+    progress.textContent = `0 / ${filteredTurns.length} tur`;
 
     if (filteredTurns.length === 0) {
       alert("Analiz edilecek hamle bulunamadı.");
-      btn.innerHTML = `✅ TAMAMLANDI`;
+      btn.textContent = '✅ TAMAMLANDI';
       return;
     }
 
@@ -1197,8 +1243,7 @@ function computeStats(hist) {
 // Filtre
 window.setFilter = function(f) {
   activeFilter = f;
-  document.querySelectorAll('.fpill').forEach(b => b.classList.remove('active'));
-  document.getElementById(`fp-${f === 'red' ? 'red' : f === 'optimal' ? 'opt' : f}`).classList.add('active');
+  syncFilterUI();
   renderMoveList();
 };
 

@@ -63,31 +63,50 @@ function runGnubgCommands(commands, timeoutMs = 15000) {
         });
 
         let output = '', finished = false;
+        let hintSent  = false;   // 'hint' komutu gönderildi mi
+        let quietTimer = null;   // output debounce timer
 
         const finish = () => {
             if (finished) return;
             finished = true;
+            if (quietTimer) clearTimeout(quietTimer);
             resolve(output);
         };
 
-        proc.stdout.on('data', d => { output += d.toString(); });
+        const sendQuit = () => {
+            if (finished) return;
+            try { proc.stdin.write('quit\n'); } catch (_) {}
+            // quit sonrası GNUBG kapanır → close event → finish()
+            // Güvenlik: 2sn içinde close gelmezse zorla bitir
+            setTimeout(() => { if (!finished) { try { proc.kill(); } catch (_) {} finish(); } }, 2000);
+        };
+
+        proc.stdout.on('data', d => {
+            output += d.toString();
+            // 'hint' gönderildikten sonra gelen her veri parçasında debounce başlat.
+            // Son veri parçasından 400ms sonra yeni veri gelmezse hint tamamlandı say → quit.
+            if (hintSent && !finished) {
+                if (quietTimer) clearTimeout(quietTimer);
+                quietTimer = setTimeout(sendQuit, 400);
+            }
+        });
         proc.stderr.on('data', () => {});
         proc.on('error', finish);
         proc.on('close', finish);
 
-        // Komutları sırayla gönder
-        let delay = 300;
+        // Komutları sırayla gönder (hint dahil)
+        let delay = 200;
         for (const cmd of commands) {
             setTimeout(() => {
                 if (!finished) {
                     try { proc.stdin.write(cmd + '\n'); } catch (_) {}
+                    if (cmd === 'hint') hintSent = true;
                 }
             }, delay);
-            delay += 180;
+            delay += 150;
         }
-        setTimeout(() => {
-            try { proc.stdin.write('quit\n'); } catch (_) {}
-        }, delay + 100);
+
+        // Global timeout — hint hiç çıktı vermezse (GNUBG crash vb.)
         setTimeout(() => {
             if (!finished) { try { proc.kill(); } catch (_) {} finish(); }
         }, timeoutMs);
@@ -95,39 +114,86 @@ function runGnubgCommands(commands, timeoutMs = 15000) {
 }
 
 // ─── Parse ───────────────────────────────────────────────────────────────────
+// ─── Parantezli Çift-Zar Notasyonu Açıcı ────────────────────────────────────
+// GNUBG çift zar hamlesini kısa yazar: '13/8(4)', '13/8(2) 8/3(2)', '24/19/16(2)'
+// Bu fonksiyon bunları tam listeye çevirir: '13/8 13/8 13/8 13/8'
+function expandParenNotation(str) {
+    return str.replace(/((?:(?:bar|\d+)(?:\/(?:off|\d+)\*?)+))\((\d+)\)/gi, (_, move, count) => {
+        return Array(parseInt(count)).fill(move).join(' ');
+    });
+}
+
 function parseHintOutput(output, turn) {
     // Windows CR+LF → LF
     const lines = output.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
     const moves = [];
+    let forcedMove = null;
 
     // Robust regex: rank. <ply info>  <hamle(ler)>  Eq.: <değer>
-    // Hamle: "24/20 13/11", "bar/22*", "6/off", vb.
-    // En az 2 boşluk hamle bloğunu ply'den ayırır
-    const RE = /^\s*(\d+)\.\s+.+?\s{2,}((?:(?:bar|\d+)\/(?:off|\d+)\*?\s*)+?)\s+Eq\.:\s*([-+]?\d+\.?\d*)/i;
+    // Multi-slash ve parantezli notasyon expand edildikten sonra eşleşir.
+    const RE = /^\s*(\d+)\.\s+.+?\s{2,}((?:(?:bar|\d+)(?:\/(?:off|\d+)\*?)+\s*)+)\s+Eq\.:\s*([-+]?\d+\.?\d*)/i;
+    // Forced move: tek seçenek varsa GNUBG rank+equity olmadan yazar
+    const FORCED_RE = /^\s*Forced move:\s+((?:(?:bar|\d+)(?:\/(?:off|\d+)\*?)+\s*)+)/i;
 
     for (const line of lines) {
-        const m = line.match(RE);
+        // Önce parantezli notasyonu genişlet: '13/8(4)' → '13/8 13/8 13/8 13/8'
+        const expanded = expandParenNotation(line);
+
+        // Forced move kontrolü
+        const forced = expanded.match(FORCED_RE);
+        if (forced) {
+            const moveStr = forced[1].trim();
+            const parsed  = parseMoveStr(moveStr, turn);
+            if (parsed.length > 0) forcedMove = { rank: 1, moveStr, equity: 0, moves: parsed };
+            continue;
+        }
+
+        const m = expanded.match(RE);
         if (!m) continue;
         const rank     = parseInt(m[1]);
         const moveStr  = m[2].trim();
         const equity   = parseFloat(m[3]);
         moves.push({ rank, moveStr, equity, moves: parseMoveStr(moveStr, turn) });
     }
+
+    // Ranked sonuç yoksa forced move'u kullan
+    if (moves.length === 0 && forcedMove) moves.push(forcedMove);
     return moves;
 }
 
 function parseMoveStr(moveStr, turn) {
     const result = [];
-    for (const part of moveStr.trim().split(/\s+/)) {
-        const m = part.match(/^(bar|\d+)\/(off|\d+)(\*?)$/i);
-        if (!m) continue;
-        let from = m[1].toLowerCase() === 'bar' ? 'bar' : parseInt(m[1]);
-        let to   = m[2].toLowerCase() === 'off' ? 'off' : parseInt(m[2]);
-        if (turn === 'black') {
-            if (typeof from === 'number') from = 25 - from;
-            if (typeof to   === 'number') to   = 25 - to;
+    // Parantezli çift-zar notasyonunu önce genişlet: '13/8(4)' → '13/8 13/8 13/8 13/8'
+    const expanded = expandParenNotation(moveStr);
+    for (const part of expanded.trim().split(/\s+/)) {
+        // GNUBG kısa notasyonunu genişlet:
+        //   '24/19/16'   → [{24→19}, {19→16}]
+        //   '24/19 19/16' → aynı sonuç (zaten ayrı parçalar)
+        //   'bar/22/17'  → [{bar→22}, {22→17}]
+        //   '13/10/7/4'  → üç hamle (çift zar)
+        // Hit (*) sadece son segmentin sonunda olabilir.
+        const segments = part.split('/');
+        if (segments.length < 2) continue;
+
+        for (let i = 0; i < segments.length - 1; i++) {
+            const fromRaw = segments[i];
+            const toRaw   = segments[i + 1];
+            const hit     = toRaw.endsWith('*');
+            const toClean = hit ? toRaw.slice(0, -1) : toRaw;
+
+            const validFrom = /^(bar|\d+)$/i.test(fromRaw);
+            const validTo   = /^(off|\d+)$/i.test(toClean);
+            if (!validFrom || !validTo) continue;
+
+            let from = fromRaw.toLowerCase() === 'bar' ? 'bar' : parseInt(fromRaw);
+            let to   = toClean.toLowerCase() === 'off' ? 'off' : parseInt(toClean);
+
+            if (turn === 'black') {
+                if (typeof from === 'number') from = 25 - from;
+                if (typeof to   === 'number') to   = 25 - to;
+            }
+            result.push({ from, to, hit });
         }
-        result.push({ from, to, hit: m[3] === '*' });
     }
     return result;
 }
@@ -149,6 +215,7 @@ async function analyzePosition(board, bar, borneOff, turn, dice) {
             'hint'
         ];
 
+        console.log(`[GNUBG] Komutlar: set board ${posID}, set turn ${turnIdx}, set dice ${d1} ${d2}`);
         const output   = await runGnubgCommands(commands);
         const topMoves = parseHintOutput(output, turn);
 
@@ -209,10 +276,45 @@ async function analyzeGame(turnHistory) {
     return results;
 }
 
+function buildJourneys(moves) {
+    // Ara noktaları zincirle: [{bar→20},{20→18}] → [{bar→18}]
+    const journeys = [];
+    const remaining = [...moves];
+    while (remaining.length > 0) {
+        const first = remaining.shift();
+        let start = first.from;
+        let end   = first.to;
+        let merged = true;
+        while (merged && end !== 'off') {
+            merged = false;
+            const idx = remaining.findIndex(m => m.from === end);
+            if (idx !== -1) { end = remaining[idx].to; remaining.splice(idx, 1); merged = true; }
+        }
+        journeys.push({ from: start, to: end });
+    }
+    return journeys;
+}
+
 function isMoveSimilar(actual, gnubgMoves) {
     if (!actual?.length || !gnubgMoves?.length) return false;
-    const actualSet = new Set(actual.map(m => `${m.from}-${m.to}`));
-    return gnubgMoves.every(m => actualSet.has(`${m.from}-${m.to}`));
+    const parsePos = (p) => p === 'bar' ? 25 : p === 'off' ? 0 : (parseInt(p) || 0);
+    const sortFn   = (a, b) => {
+        const d = parsePos(a.from) - parsePos(b.from);
+        return d !== 0 ? d : parsePos(a.to) - parsePos(b.to);
+    };
+    // Önce birebir karşılaştır
+    if (actual.length === gnubgMoves.length) {
+        const as = [...actual].sort(sortFn);
+        const gs = [...gnubgMoves].sort(sortFn);
+        if (gs.every((m, i) => as[i].from === m.from && as[i].to === m.to)) return true;
+    }
+    // Net yolculuk karşılaştırması: bar→20→18 == bar→18
+    const aJ = buildJourneys([...actual]);
+    const gJ = buildJourneys([...gnubgMoves]);
+    if (aJ.length !== gJ.length) return false;
+    const as = aJ.sort(sortFn);
+    const gs = gJ.sort(sortFn);
+    return gs.every((m, i) => as[i].from === m.from && as[i].to === m.to);
 }
 
 function calcEquityLoss(topMoves, actualMoves) {

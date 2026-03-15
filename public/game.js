@@ -280,8 +280,25 @@ function setupGameEvents() {
     // Tamam (Sıra Bitir)
     document.getElementById('done-btn').addEventListener('click', async () => {
         if (matchSettings.isTrainingMode && gameState && gameState.phase === 'moving' && gameState.turn === myColor) {
-            if (gameState.legalMoves && gameState.legalMoves.length > 0) {
-                send({ type: 'end_turn' });
+            
+            // Önce: Oyuncunun hala yapabileceği bir hamle var mı? (Zarlar bitmemiş olabilir)
+            // gameState.legalMoves sunucudan gelen "güncel" yasal hamlelerdir. 
+            // Eğer dizi boş değilse oyuncu bir şeyler daha yapabilir demektir.
+            const currentLegal = gameState.legalMoves || [];
+            if (currentLegal.length > 0) {
+                // Görsel uyarı ver (Tutor overlay'i kullanabiliriz veya status yazabiliriz)
+                // Şimdilik status yazalım ve butonu sarsalım
+                const msg = "Hala yapabileceğiniz hamleler var! Zarlarınızı bitirin.";
+                setStatus(`⚠️ ${msg}`);
+                
+                // Tutor modalini "Eksik Hamle" için göster
+                document.getElementById('tutor-msg').innerHTML = 
+                    `<strong style="color:var(--amber); font-size:16px;">HAMLELERİNİZ BİTMEDİ</strong><br><br>` + 
+                    `<span style="opacity:0.8">Hala kullanabileceğiniz zarlarınız veya yapabileceğiniz yasal hamleleriniz var. Sırayı bitirmeden önce tüm pulları oynamalısınız.</span>`;
+                
+                document.getElementById('tutor-overlay').classList.remove('hidden');
+                // Force btn metnini değiştir
+                document.getElementById('tutor-force-btn').textContent = "Pas Geç";
                 return;
             }
 
@@ -291,13 +308,20 @@ function setupGameEvents() {
             btn.disabled = true;
 
             try {
+                // currentTurnBoard var mı kontrol et (Emniyet şeridi)
+                const boardContext = gameState.currentTurnBoard || { 
+                    board: gameState.board, 
+                    bar: gameState.bar, 
+                    borneOff: gameState.borneOff 
+                };
+
                 const res = await fetch('/api/gnubg/analyze-position', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        board: gameState.currentTurnBoard.board,
-                        bar: gameState.currentTurnBoard.bar,
-                        borneOff: gameState.currentTurnBoard.borneOff,
+                        board: boardContext.board,
+                        bar: boardContext.bar,
+                        borneOff: boardContext.borneOff,
                         turn: gameState.turn,
                         dice: gameState.dice
                     })
@@ -308,10 +332,46 @@ function setupGameEvents() {
                 
                 const actualMoves = gameState.currentTurnMoves || [];
                 
+                function buildJourneys(moves) {
+                    // Ara noktaları zincirle: [{bar->20},{20->18}] → [{bar->18}]
+                    const journeys = [];
+                    const remaining = [...moves];
+                    while (remaining.length > 0) {
+                        const first = remaining.shift();
+                        let start = first.from;
+                        let end   = first.to;
+                        let merged = true;
+                        while (merged && end !== 'off') {
+                            merged = false;
+                            const idx = remaining.findIndex(m => m.from === end);
+                            if (idx !== -1) { end = remaining[idx].to; remaining.splice(idx, 1); merged = true; }
+                        }
+                        journeys.push({ from: start, to: end });
+                    }
+                    return journeys;
+                }
+
                 function isSim(am, tm) {
-                    if (!am?.length || !tm?.length) return false;
-                    const amSet = new Set(am.map(m => `${m.from}-${m.to}`));
-                    return tm.every(m => amSet.has(`${m.from}-${m.to}`));
+                    if (!am || !tm) return false;
+                    const parsePos = (p) => p === 'bar' ? 25 : p === 'off' ? 0 : (parseInt(p) || 0);
+                    const sortFn   = (a, b) => {
+                        const d = parsePos(a.from) - parsePos(b.from);
+                        return d !== 0 ? d : parsePos(a.to) - parsePos(b.to);
+                    };
+                    // Önce birebir uzunluk eşleşmesini dene
+                    if (am.length === tm.length) {
+                        const as = [...am].sort(sortFn);
+                        const ts = [...tm].sort(sortFn);
+                        if (ts.every((m, i) => as[i].from === m.from && as[i].to === m.to)) return true;
+                    }
+                    // Net yolculuk karşılaştırması:
+                    // bar→20→18 (2 hamle) == bar→18 (GNUBG kısa notasyon, 1 hamle)
+                    const amJ = buildJourneys([...am]);
+                    const tmJ = buildJourneys([...tm]);
+                    if (amJ.length !== tmJ.length) return false;
+                    const as = amJ.sort(sortFn);
+                    const ts = tmJ.sort(sortFn);
+                    return ts.every((m, i) => as[i].from === m.from && as[i].to === m.to);
                 }
 
                 let equityLoss = null;
@@ -332,7 +392,7 @@ function setupGameEvents() {
 
                 if (equityLoss !== null && equityLoss > 0.05) {
                     const isBlunder = equityLoss > 0.1;
-                    const lossText = equityLoss === 999 ? "ÇOK BÜYÜK HATA (Geçersiz veya Çok Kötü Hamle)" : 
+                    const lossText = equityLoss === 999 ? "BÜYÜK HATA (Daha İyi Bir Hamle Var)" : 
                                     (isBlunder ? `BÜYÜK HATA (−${equityLoss.toFixed(3)} Puan)` : `HATA (−${equityLoss.toFixed(3)} Puan)`);
                     
                     const bestMoves = data.topMoves[0].moves || [];
@@ -350,6 +410,7 @@ function setupGameEvents() {
                         `<span style="opacity:0.8">Sizin Hamleniz:</span> <b style="color:#fff">${actualStr}</b><br><br>` + 
                         `<span style="opacity:0.8;color:var(--green)">GNUBG Önerisi:</span> <b style="color:var(--green)">${bestStr}</b>`;
                     
+                    document.getElementById('tutor-force-btn').textContent = "Yine De Oyna";
                     document.getElementById('tutor-overlay').classList.remove('hidden');
 
                     btn.innerHTML = originalText;
@@ -371,7 +432,10 @@ function setupGameEvents() {
     // Tutor Modal Eylemleri
     document.getElementById('tutor-undo-btn').addEventListener('click', () => {
         document.getElementById('tutor-overlay').classList.add('hidden');
-        while (gameState.moveHistory && gameState.moveHistory.length > 0) {
+        // moveHistory sunucu tarafında tutulur, client'ta gelmez.
+        // Yapılan hamle sayısı diceUsed.length ile belirlenir.
+        const movesToUndo = gameState?.diceUsed?.length || 0;
+        for (let i = 0; i < movesToUndo; i++) {
             send({ type: 'undo' });
         }
     });
@@ -972,7 +1036,11 @@ function updateRollBtn() {
     btn.classList.toggle('hidden', !canRoll);
 
     // Tamam butonu
-    const canEndTurn = isMyTurn && gameState.phase === 'moving' && gameState.legalMoves && gameState.legalMoves.length === 0;
+    // Eğitim modunda eğer en az bir hamle yapılmışsa 'TAMAM' butonu görünsün ki uyarı verebilelim
+    const hasAnyMove = gameState.diceUsed && gameState.diceUsed.length > 0;
+    const canEndTurn = isMyTurn && gameState.phase === 'moving' && 
+                       (gameState.legalMoves.length === 0 || (matchSettings.isTrainingMode && hasAnyMove));
+    
     doneBtn.classList.toggle('hidden', !canEndTurn);
 
     // Geri Al butonu — her zaman görünür, hamle yoksa disabled
@@ -1039,10 +1107,10 @@ function startTimer() {
     timerInterval = setInterval(() => {
         if (!gameState || gameState.phase === 'game_over' || gameState.phase === 'waiting_for_opponent') return;
 
-        // Sadece sırası olanın süresi düşer
-        if (gameState.turn === 'white') {
+        // Sadece sırası olanın süresi düşer (Eğer süre 9000'den büyükse sınırsız kabul edilir)
+        if (gameState.turn === 'white' && whiteTime < 9000) {
             whiteTime--;
-        } else if (gameState.turn === 'black') {
+        } else if (gameState.turn === 'black' && blackTime < 9000) {
             blackTime--;
         }
 
@@ -1069,6 +1137,7 @@ function updateTimerDisplay() {
     const oppTimeVal = myColor === 'white' ? blackTime : whiteTime;
 
     const format = (t) => {
+        if (t >= 9000) return "Sınırsız";
         const m = Math.floor(Math.max(0, t) / 60).toString().padStart(2, '0');
         const s = (Math.max(0, t) % 60).toString().padStart(2, '0');
         return `${m}:${s}`;
@@ -1136,11 +1205,13 @@ function colorTR(color) {
     return color === 'white' ? '⬜ Beyaz' : '🔴 Kırmızı';
 }
 
-// Bearing off güncellemesini game_state güncellemelerine bağla
 const origRenderBoard = renderBoard;
 window.renderBoard = function () {
     origRenderBoard();
     updateBearingOff();
+    updateRollBtn();
+    updateDiceUI();
+    updateCubeUI();
     // Bar sayıları
     if (gameState) {
         document.getElementById('bar-white-count').textContent = gameState.bar.white || 0;
